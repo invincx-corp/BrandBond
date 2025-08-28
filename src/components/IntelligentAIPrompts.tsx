@@ -202,10 +202,10 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
               {getCategoryDescription(prompt.category)}
             </p>
 
-            {/* Prompt Text */}
-            <p className="text-sm text-gray-700 leading-relaxed mb-2">
-              {prompt.text}
-            </p>
+                         {/* Prompt Text */}
+             <p className="text-sm text-gray-700 leading-relaxed mb-2 line-clamp-3 flex-1">
+               {prompt.text}
+             </p>
 
             {/* AI Reasoning (if enabled) */}
             {showReasoning && (
