@@ -902,19 +902,19 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                       {/* AI Prompts Section */}
             {currentUserProfile && activeConversation && (
-              <div className="mb-4">
+              <div className="mb-3 px-4">
                 {/* Toggle Button */}
-                <div className="flex justify-center mb-3">
+                <div className="flex justify-center mb-2">
                   <button
                     onClick={() => setShowAIPrompts(!showAIPrompts)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all ${
+                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
                       theme === 'friends'
                         ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
                         : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'
-                    } text-white shadow-lg hover:shadow-xl transform hover:scale-105`}
+                    } text-white shadow-md hover:shadow-lg transform hover:scale-105`}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    <span className="text-sm font-medium">
+                    <Sparkles className="w-3 h-3" />
+                    <span className="text-xs font-medium">
                       {showAIPrompts ? 'Hide AI Prompts' : 'Show AI Prompts'}
                     </span>
                   </button>
@@ -922,21 +922,23 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                 {/* AI Prompts Component */}
                 {showAIPrompts && (
-                  <IntelligentAIPrompts
-                    currentUser={currentUserProfile}
-                    otherUser={{
-                      id: activeConversation.otherProfile.id,
-                      name: activeConversation.otherProfile.name,
-                      age: activeConversation.otherProfile.age,
-                      location: activeConversation.otherProfile.location,
-                      bio: activeConversation.otherProfile.bio || '',
-                      commonInterests: activeConversation.otherProfile.commonInterests || [],
-                      allTimeFavorites: activeConversation.otherProfile.allTimeFavorites || {}
-                    }}
-                    theme={theme}
-                    onSendPrompt={handleIntelligentPrompt}
-                    isVisible={showAIPrompts}
-                  />
+                  <div className="max-w-3xl mx-auto">
+                    <IntelligentAIPrompts
+                      currentUser={currentUserProfile}
+                      otherUser={{
+                        id: activeConversation.otherProfile.id,
+                        name: activeConversation.otherProfile.name,
+                        age: activeConversation.otherProfile.age,
+                        location: activeConversation.otherProfile.location,
+                        bio: activeConversation.otherProfile.bio || '',
+                        commonInterests: activeConversation.otherProfile.commonInterests || [],
+                        allTimeFavorites: activeConversation.otherProfile.allTimeFavorites || {}
+                      }}
+                      theme={theme}
+                      onSendPrompt={handleIntelligentPrompt}
+                      isVisible={showAIPrompts}
+                    />
+                  </div>
                 )}
               </div>
             )}
