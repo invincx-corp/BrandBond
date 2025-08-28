@@ -732,40 +732,42 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
         </div>
       </div>
 
-        {/* Main Chat Area */}
+      {/* Main Chat Area - Only show when conversation is active */}
+      {activeConversation ? (
         <div className="flex-1 flex flex-col h-full">
           {/* Header */}
           <div className={`bg-white/80 backdrop-blur-sm border-b ${colorScheme.border} p-4`}>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setActiveConversation(null)}
-                    className={`p-2 ${colorScheme.hover} rounded-full transition-colors duration-200 lg:hidden`}
-                  >
-                    <ArrowLeft className="w-5 h-5 text-pink-600" />
-                  </button>
-                  
-                  <div className={`w-10 h-10 rounded-full overflow-hidden border-2 ${colorScheme.border}`}>
-                    <img
-                      src={activeConversation.otherProfile.photos[0]}
-                      alt={activeConversation.otherProfile.name}
-                      className="w-full h-full object-cover"
-                      crossOrigin="anonymous"
-                    />
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold text-gray-800">{activeConversation.otherProfile.name}</h3>
-                    <div className="flex items-center space-x-2 text-sm text-gray-500">
-                      <span>{activeConversation.otherProfile.age} years old</span>
-                      <span>•</span>
-                      <span>{activeConversation.otherProfile.location}</span>
-                      <span>•</span>
-                      <span className={`${colorScheme.text} font-medium`}>{activeConversation.otherProfile.matchPercentage}% Match</span>
-                    </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setActiveConversation(null)}
+                  className={`p-2 ${colorScheme.hover} rounded-full transition-colors duration-200 lg:hidden`}
+                >
+                  <ArrowLeft className="w-5 h-5 text-pink-600" />
+                </button>
+                
+                <div className={`w-10 h-10 rounded-full overflow-hidden border-2 ${colorScheme.border}`}>
+                  <img
+                    src={activeConversation.otherProfile.photos[0]}
+                    alt={activeConversation.otherProfile.name}
+                    className="w-full h-full object-cover"
+                    crossOrigin="anonymous"
+                  />
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-gray-800">{activeConversation.otherProfile.name}</h3>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <span>{activeConversation.otherProfile.age} years old</span>
+                    <span>•</span>
+                    <span>{activeConversation.otherProfile.location}</span>
+                    <span>•</span>
+                    <span className={`${colorScheme.text} font-medium`}>{activeConversation.otherProfile.matchPercentage}% Match</span>
                   </div>
                 </div>
+              </div>
 
-                          {/* Action Buttons */}
+              {/* Action Buttons */}
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => onStartVoiceCall(activeConversation.conversation.id)}
@@ -890,50 +892,51 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
                   )}
                 </button>
               </div>
+            </div>
           </div>
 
-                      {/* AI Prompts Section */}
-            {currentUserProfile && activeConversation && (
-              <div className="px-4 py-2 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-                {/* Toggle Button */}
-                <div className="flex justify-center mb-2">
-                  <button
-                    onClick={() => setShowAIPrompts(!showAIPrompts)}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
-                      theme === 'friends'
-                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                        : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'
-                    } text-white shadow-md hover:shadow-lg transform hover:scale-105`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span className="text-xs font-medium">
-                      {showAIPrompts ? 'Hide AI Prompts' : 'Show AI Prompts'}
-                    </span>
-                  </button>
-                </div>
-
-                {/* AI Prompts Component */}
-                {showAIPrompts && (
-                  <div className="max-w-3xl mx-auto mb-2">
-                    <IntelligentAIPrompts
-                      currentUser={currentUserProfile}
-                      otherUser={{
-                        id: activeConversation.otherProfile.id,
-                        name: activeConversation.otherProfile.name,
-                        age: activeConversation.otherProfile.age,
-                        location: activeConversation.otherProfile.location,
-                        bio: activeConversation.otherProfile.bio || '',
-                        commonInterests: activeConversation.otherProfile.commonInterests || [],
-                        allTimeFavorites: activeConversation.otherProfile.allTimeFavorites || {}
-                      }}
-                      theme={theme}
-                      onSendPrompt={handleIntelligentPrompt}
-                      isVisible={showAIPrompts}
-                    />
-                  </div>
-                )}
+          {/* AI Prompts Section */}
+          {currentUserProfile && activeConversation && (
+            <div className="px-4 py-2 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+              {/* Toggle Button */}
+              <div className="flex justify-center mb-2">
+                <button
+                  onClick={() => setShowAIPrompts(!showAIPrompts)}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
+                    theme === 'friends'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                      : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'
+                  } text-white shadow-md hover:shadow-lg transform hover:scale-105`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span className="text-xs font-medium">
+                    {showAIPrompts ? 'Hide AI Prompts' : 'Show AI Prompts'}
+                  </span>
+                </button>
               </div>
-            )}
+
+              {/* AI Prompts Component */}
+              {showAIPrompts && (
+                <div className="max-w-3xl mx-auto mb-2">
+                  <IntelligentAIPrompts
+                    currentUser={currentUserProfile}
+                    otherUser={{
+                      id: activeConversation.otherProfile.id,
+                      name: activeConversation.otherProfile.name,
+                      age: activeConversation.otherProfile.age,
+                      location: activeConversation.otherProfile.location,
+                      bio: activeConversation.otherProfile.bio || '',
+                      commonInterests: activeConversation.otherProfile.commonInterests || [],
+                      allTimeFavorites: activeConversation.otherProfile.allTimeFavorites || {}
+                    }}
+                    theme={theme}
+                    onSendPrompt={handleIntelligentPrompt}
+                    isVisible={showAIPrompts}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Messages Area - Flexible height that works with AI prompts */}
           <div className={`${showAIPrompts ? 'overflow-hidden' : 'overflow-y-auto'} flex-1 p-4 space-y-4 min-h-0`}>
