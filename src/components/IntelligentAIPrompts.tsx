@@ -110,7 +110,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
   if (!isVisible || prompts.length === 0) return null;
 
   return (
-    <div className={`mb-4 p-3 rounded-xl border-2 shadow-lg ${
+    <div className={`mb-4 p-3 rounded-xl border-2 shadow-lg max-w-4xl mx-auto ${
       theme === 'friends' 
         ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200' 
         : 'bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200'
