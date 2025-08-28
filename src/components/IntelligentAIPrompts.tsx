@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Lightbulb, MessageCircle, Star, TrendingUp, MapPin, Calendar, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Lightbulb, MessageCircle, Star, MapPin, Calendar } from 'lucide-react';
 import { AIPromptService, AIPrompt, UserProfile } from '../services/aiPromptService';
 
 interface IntelligentAIPromptsProps {
@@ -19,8 +19,6 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
 }) => {
   const [prompts, setPrompts] = useState<AIPrompt[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showReasoning, setShowReasoning] = useState(false);
-  const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
 
   useEffect(() => {
     if (isVisible && currentUser && otherUser) {
@@ -28,7 +26,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         currentUser,
         otherUser,
         theme,
-        16
+        8 // Reduced from 16 to 8 for better UX
       );
       setPrompts(generatedPrompts);
     }
@@ -51,35 +49,18 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'common-interest':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'different-favorite':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'conversation-starter':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'location-based':
-        return 'bg-red-100 text-red-700 border-red-200';
-      case 'age-based':
-        return 'bg-purple-100 text-purple-700 border-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case 'common-interest':
-        return 'Common Interests';
+        return 'Common';
       case 'different-favorite':
-        return 'Discover New';
+        return 'Discover';
       case 'conversation-starter':
-        return 'Start Chat';
+        return 'Start';
       case 'location-based':
         return 'Location';
       case 'age-based':
-        return 'Age Related';
+        return 'Age';
       default:
         return 'General';
     }
@@ -94,54 +75,46 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
   if (!isVisible || prompts.length === 0) return null;
 
   return (
-    <div className={`bg-white rounded-xl border shadow-lg overflow-hidden ${
+    <div className={`bg-white rounded-lg border shadow-sm overflow-hidden ${
       theme === 'friends' 
         ? 'border-blue-200' 
         : 'border-pink-200'
     }`}>
       
-      {/* Header */}
-      <div className={`p-3 border-b ${
+      {/* Compact Header */}
+      <div className={`px-3 py-2 border-b ${
         theme === 'friends' 
-          ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200' 
-          : 'bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200'
+          ? 'bg-blue-50 border-blue-200' 
+          : 'bg-pink-50 border-pink-200'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className={`p-1.5 rounded-full ${
+            <div className={`p-1 rounded-full ${
               theme === 'friends' 
-                ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
-                : 'bg-gradient-to-r from-pink-500 to-purple-500'
+                ? 'bg-blue-500' 
+                : 'bg-pink-500'
             }`}>
               <Sparkles className="w-3 h-3 text-white" />
             </div>
             <div>
-              <h4 className="font-semibold text-sm text-gray-800">
-                {theme === 'friends' ? 'Smart Chat Starters' : 'Romantic Conversation Starters'}
+              <h4 className="font-medium text-sm text-gray-800">
+                {theme === 'friends' ? 'Smart Chat Starters' : 'Romantic Starters'}
               </h4>
               <p className="text-xs text-gray-600">
-                AI-powered prompts based on your connection with {otherUser.name}
+                Based on {otherUser.name}'s profile
               </p>
             </div>
           </div>
           
-          <button
-            onClick={() => setShowReasoning(!showReasoning)}
-            className={`p-1.5 rounded-full transition-colors ${
-              theme === 'friends' 
-                ? 'hover:bg-blue-100 text-blue-600' 
-                : 'hover:bg-pink-100 text-pink-600'
-            }`}
-            title="Show AI reasoning"
-          >
-            <Target className="w-3 h-3" />
-          </button>
+          <div className="text-xs text-gray-500">
+            {filteredPrompts.length} prompts
+          </div>
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="p-3 bg-gray-50 border-b border-gray-200">
-        <div className="flex flex-wrap gap-1.5 justify-center">
+      {/* Compact Category Filter */}
+      <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap gap-1 justify-center">
           {categories.map(category => (
             <button
               key={category}
@@ -162,89 +135,71 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         </div>
       </div>
 
-      {/* Prompts Container - Scrollable */}
-      <div className="max-h-72 overflow-y-auto p-3">
-        <div className="space-y-3">
+      {/* Compact Prompts List */}
+      <div className="max-h-48 overflow-y-auto">
+        <div className="space-y-2 p-3">
           {filteredPrompts.map((prompt) => (
             <div
               key={prompt.id}
-              className={`bg-white rounded-lg border transition-all hover:shadow-md ${
+              className={`p-2 rounded border transition-all hover:shadow-sm cursor-pointer ${
                 theme === 'friends' 
-                  ? 'border-blue-200 hover:border-blue-300' 
-                  : 'border-pink-200 hover:border-pink-300'
+                  ? 'border-blue-200 hover:border-blue-300 hover:bg-blue-50' 
+                  : 'border-pink-200 hover:border-pink-300 hover:bg-pink-50'
               }`}
+              onClick={() => onSendPrompt(prompt.text)}
             >
-              {/* Prompt Header */}
-              <div className="p-3 border-b border-gray-100">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {getCategoryIcon(prompt.category)}
-                    <span className={`text-xs px-2 py-1 rounded-full border ${getCategoryColor(prompt.category)}`}>
-                      {getCategoryLabel(prompt.category)}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">
-                      {Math.round(prompt.confidence * 100)}%
-                    </span>
-                  </div>
+              <div className="flex items-start justify-between mb-1">
+                <div className="flex items-center space-x-2">
+                  {getCategoryIcon(prompt.category)}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full border ${getCategoryColor(prompt.category)}`}>
+                    {getCategoryLabel(prompt.category)}
+                  </span>
                 </div>
-
-                {/* Prompt Text */}
-                <div className="mb-2">
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    {prompt.text}
-                  </p>
+                <div className="text-xs text-gray-400">
+                  {Math.round(prompt.confidence * 100)}%
                 </div>
-
-                {/* AI Reasoning (if enabled) */}
-                {showReasoning && (
-                  <div className="mt-2 p-2 bg-gray-50 rounded border text-xs text-gray-600">
-                    <strong>AI Reasoning:</strong> {prompt.reasoning}
-                  </div>
-                )}
               </div>
-
-              {/* Action Button */}
-              <div className="p-3">
-                <button
-                  className={`w-full px-3 py-2 text-xs rounded-lg transition-all ${
-                    theme === 'friends'
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
-                      : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600'
-                  }`}
-                  onClick={() => onSendPrompt(prompt.text)}
-                >
-                  Use This Prompt
-                </button>
+              
+              <p className="text-xs text-gray-700 leading-relaxed line-clamp-2">
+                {prompt.text}
+              </p>
+              
+              <div className="mt-2 text-xs text-gray-500">
+                Click to use this prompt
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className={`p-3 border-t ${
+      {/* Compact Footer */}
+      <div className={`px-3 py-2 border-t text-center text-xs text-gray-500 ${
         theme === 'friends' 
           ? 'bg-blue-50 border-blue-200' 
           : 'bg-pink-50 border-pink-200'
       }`}>
-        <div className="text-center">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs text-gray-600 mb-1">
-            <span>{filteredPrompts.length} prompts available</span>
-            <span>•</span>
-            <span>{currentUser.commonInterests.length} interests</span>
-            <span>•</span>
-            <span>{Object.keys(currentUser.allTimeFavorites).length} categories</span>
-          </div>
-          <div className="text-xs text-gray-500">
-            💡 AI analyzes {Object.keys(currentUser.allTimeFavorites).length + Object.keys(otherUser.allTimeFavorites).length} total categories
-          </div>
-        </div>
+        💡 AI-powered conversation starters
       </div>
     </div>
   );
+};
+
+// Helper function for category colors
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case 'common-interest':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    case 'different-favorite':
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'conversation-starter':
+      return 'bg-green-100 text-green-700 border-green-200';
+    case 'location-based':
+      return 'bg-red-100 text-red-700 border-red-200';
+    case 'age-based':
+      return 'bg-purple-100 text-purple-700 border-purple-200';
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+  }
 };
 
 export default IntelligentAIPrompts;
