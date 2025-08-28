@@ -1165,7 +1165,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
           theme === 'friends' ? 'from-blue-50 via-cyan-50 to-indigo-50' : 'from-pink-50 via-purple-50 to-indigo-50'
         }`}>
           <div className="text-center p-8">
-                            <div className={`w-24 h-24 mx-auto mb-6 bg-gradient-to-r ${colorScheme.primary} rounded-full flex items-center justify-center`}>
+            <div className={`w-24 h-24 mx-auto mb-6 bg-gradient-to-r ${colorScheme.primary} rounded-full flex items-center justify-center`}>
               <MessageCircle className="w-12 h-12 text-white" />
             </div>
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Start a Conversation</h3>
