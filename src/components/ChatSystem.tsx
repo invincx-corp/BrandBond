@@ -943,8 +943,8 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               </div>
             )}
 
-          {/* Messages Area - Fixed height to prevent pushing AI prompts down */}
-          <div className="h-96 overflow-y-auto p-4 space-y-4">
+          {/* Messages Area - Flexible height that works with AI prompts */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             {activeConversation.messages.map((message) => (
               <div
                 key={message.id}
