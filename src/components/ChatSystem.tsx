@@ -1053,9 +1053,10 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
             
             <div ref={messagesEndRef} />
           </div>
+        </div>
 
-          {/* Enhanced Message Input with Advanced Features */}
-                      <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
+        {/* Enhanced Message Input with Advanced Features */}
+        <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
             {/* Advanced Feature Row */}
             <div className="flex items-center space-x-2 mb-3">
               <button
