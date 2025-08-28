@@ -400,13 +400,139 @@ export class AIPromptService {
     currentUser: UserProfile,
     otherUser: UserProfile,
     universe: 'love' | 'friends',
-    maxPrompts: number = 8
+    maxPrompts: number = 12
   ): AIPrompt[] {
-    const basePrompts = this.generatePersonalizedPrompts(currentUser, otherUser, maxPrompts);
+    const prompts: AIPrompt[] = [];
     
+    // 1. COMMON INTEREST PROMPTS (High Priority)
+    prompts.push({
+      id: `common-1-${Date.now()}`,
+      text: `I noticed we both love {category}! What's your absolute favorite and why does it mean so much to you?`,
+      category: 'common-interest',
+      confidence: 0.95,
+      reasoning: 'High confidence - shared interests create immediate connection'
+    });
+    
+    prompts.push({
+      id: `common-2-${Date.now()}`,
+      text: `We have such similar taste in {category}! What's something you've discovered recently that you think I'd love too?`,
+      category: 'common-interest',
+      confidence: 0.93,
+      reasoning: 'High confidence - mutual discovery and sharing'
+    });
+
+    prompts.push({
+      id: `common-3-${Date.now()}`,
+      text: `It's amazing how we both appreciate {category}! What's your most memorable experience with it?`,
+      category: 'common-interest',
+      confidence: 0.92,
+      reasoning: 'High confidence - shared appreciation and experiences'
+    });
+
+    // 2. DIFFERENT FAVORITE PROMPTS (High Priority)
+    prompts.push({
+      id: `different-1-${Date.now()}`,
+      text: `I'm curious about your love for {category}! What makes it so special to you? I'd love to understand your perspective.`,
+      category: 'different-favorite',
+      confidence: 0.90,
+      reasoning: 'High confidence - curiosity about different preferences'
+    });
+    
+    prompts.push({
+      id: `different-2-${Date.now()}`,
+      text: `I've never really explored {category}, but you seem passionate about it! What would you recommend I start with?`,
+      category: 'different-favorite',
+      confidence: 0.88,
+      reasoning: 'High confidence - learning from different interests'
+    });
+
+    prompts.push({
+      id: `different-3-${Date.now()}`,
+      text: `Your taste in {category} is so unique! What's the story behind how you got into it?`,
+      category: 'different-favorite',
+      confidence: 0.87,
+      reasoning: 'High confidence - personal stories and background'
+    });
+
+    // 3. CONVERSATION STARTER PROMPTS (High Priority)
+    prompts.push({
+      id: `conversation-1-${Date.now()}`,
+      text: `I'd love to get to know you better! What's something that always makes you smile, no matter what?`,
+      category: 'conversation-starter',
+      confidence: 0.90,
+      reasoning: 'High confidence - universal positive emotion'
+    });
+    
+    prompts.push({
+      id: `conversation-2-${Date.now()}`,
+      text: `What's the most interesting thing that happened to you this week? I'm genuinely curious!`,
+      category: 'conversation-starter',
+      confidence: 0.88,
+      reasoning: 'High confidence - recent experiences and curiosity'
+    });
+
+    prompts.push({
+      id: `conversation-3-${Date.now()}`,
+      text: `If you could have dinner with anyone, living or historical, who would it be and what would you talk about?`,
+      category: 'conversation-starter',
+      confidence: 0.87,
+      reasoning: 'High confidence - imaginative and personal'
+    });
+
+    // 4. LOCATION-BASED PROMPTS (Medium Priority)
+    prompts.push({
+      id: `location-1-${Date.now()}`,
+      text: `I love that you're from {location}! What's the one thing about your hometown that everyone should know?`,
+      category: 'location-based',
+      confidence: 0.80,
+      reasoning: 'Medium confidence - location pride and local knowledge'
+    });
+    
+    prompts.push({
+      id: `location-2-${Date.now()}`,
+      text: `{location} sounds amazing! What's your favorite hidden gem that tourists usually miss?`,
+      category: 'location-based',
+      confidence: 0.78,
+      reasoning: 'Medium confidence - insider knowledge and recommendations'
+    });
+
+    prompts.push({
+      id: `location-3-${Date.now()}`,
+      text: `What's the most beautiful place you've ever visited? I'm always looking for new travel inspiration!`,
+      category: 'location-based',
+      confidence: 0.75,
+      reasoning: 'Medium confidence - travel experiences and inspiration'
+    });
+
+    // 5. AGE-BASED PROMPTS (Medium Priority)
+    prompts.push({
+      id: `age-1-${Date.now()}`,
+      text: `At {age}, what's the most valuable lesson you've learned so far in life?`,
+      category: 'age-based',
+      confidence: 0.78,
+      reasoning: 'Medium confidence - life experience and wisdom'
+    });
+    
+    prompts.push({
+      id: `age-2-${Date.now()}`,
+      text: `What's something you wish you knew when you were younger? I think we could all learn from each other!`,
+      category: 'age-based',
+      confidence: 0.75,
+      reasoning: 'Medium confidence - reflection and advice sharing'
+    });
+
+    prompts.push({
+      id: `age-3-${Date.now()}`,
+      text: `What's your biggest goal for the next year? I love hearing about people's dreams and aspirations!`,
+      category: 'age-based',
+      confidence: 0.73,
+      reasoning: 'Medium confidence - future planning and motivation'
+    });
+
+    // 6. UNIVERSE-SPECIFIC ENHANCEMENTS
     if (universe === 'love') {
-      // Add love-specific prompts with enhanced variety
-      basePrompts.push({
+      // Love universe specific prompts
+      prompts.push({
         id: `love-romantic-${Date.now()}`,
         text: `I feel like we have such a special connection. What's something that makes you feel truly alive?`,
         category: 'conversation-starter',
@@ -414,7 +540,7 @@ export class AIPromptService {
         reasoning: 'Love universe - romantic connection building'
       });
       
-      basePrompts.push({
+      prompts.push({
         id: `love-deep-${Date.now()}`,
         text: `I'd love to know what's on your heart today. What's something you're passionate about right now?`,
         category: 'conversation-starter',
@@ -422,7 +548,7 @@ export class AIPromptService {
         reasoning: 'Love universe - emotional depth and vulnerability'
       });
 
-      basePrompts.push({
+      prompts.push({
         id: `love-discovery-${Date.now()}`,
         text: `I want to discover every little thing about you. What's a favorite memory that always makes you smile?`,
         category: 'conversation-starter',
@@ -430,7 +556,7 @@ export class AIPromptService {
         reasoning: 'Love universe - deep personal discovery'
       });
 
-      basePrompts.push({
+      prompts.push({
         id: `love-future-${Date.now()}`,
         text: `I can see us building something beautiful together. What's your biggest dream for the future?`,
         category: 'conversation-starter',
@@ -438,8 +564,8 @@ export class AIPromptService {
         reasoning: 'Love universe - future planning and dreams'
       });
     } else {
-      // Add friends-specific prompts with enhanced variety
-      basePrompts.push({
+      // Friends universe specific prompts
+      prompts.push({
         id: `friends-casual-${Date.now()}`,
         text: `Hey! I think we'd get along really well. What's something fun you've been up to lately?`,
         category: 'conversation-starter',
@@ -447,7 +573,7 @@ export class AIPromptService {
         reasoning: 'Friends universe - casual friendship building'
       });
       
-      basePrompts.push({
+      prompts.push({
         id: `friends-activity-${Date.now()}`,
         text: `We seem to have similar interests! Would you be up for chatting about something we both love?`,
         category: 'conversation-starter',
@@ -455,7 +581,7 @@ export class AIPromptService {
         reasoning: 'Friends universe - activity and interest-based connection'
       });
 
-      basePrompts.push({
+      prompts.push({
         id: `friends-adventure-${Date.now()}`,
         text: `I love trying new things! What's an adventure or experience you'd recommend to a friend?`,
         category: 'conversation-starter',
@@ -463,7 +589,7 @@ export class AIPromptService {
         reasoning: 'Friends universe - adventure and experience sharing'
       });
 
-      basePrompts.push({
+      prompts.push({
         id: `friends-collaboration-${Date.now()}`,
         text: `I think we could create something amazing together! What's a project or activity you'd love to collaborate on?`,
         category: 'conversation-starter',
@@ -472,7 +598,41 @@ export class AIPromptService {
       });
     }
 
-    return basePrompts
+    // Ensure we have a good mix of categories
+    const categoryCounts = {
+      'common-interest': 0,
+      'different-favorite': 0,
+      'conversation-starter': 0,
+      'location-based': 0,
+      'age-based': 0
+    };
+
+    prompts.forEach(prompt => {
+      categoryCounts[prompt.category]++;
+    });
+
+    // Add more prompts to underrepresented categories
+    if (categoryCounts['common-interest'] < 3) {
+      prompts.push({
+        id: `common-extra-${Date.now()}`,
+        text: `I'm so excited we both love {category}! What's your favorite memory related to it?`,
+        category: 'common-interest',
+        confidence: 0.85,
+        reasoning: 'Additional common interest prompt for balance'
+      });
+    }
+
+    if (categoryCounts['different-favorite'] < 3) {
+      prompts.push({
+        id: `different-extra-${Date.now()}`,
+        text: `I'm fascinated by your interest in {category}! How did you first discover it?`,
+        category: 'different-favorite',
+        confidence: 0.82,
+        reasoning: 'Additional different favorite prompt for balance'
+      });
+    }
+
+    return prompts
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, maxPrompts);
   }
