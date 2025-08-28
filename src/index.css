@@ -89,6 +89,13 @@
     animation: float 3s ease-in-out infinite;
   }
 
+  /* Responsive improvements for AI prompts */
+  @media (max-width: 768px) {
+    .max-w-4xl {
+      max-width: 95%;
+    }
+  }
+
   /* Pulse glow effect */
   @keyframes pulse-glow {
     0%, 100% {
