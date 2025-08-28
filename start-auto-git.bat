@@ -47,6 +47,6 @@ echo 🛑 Press Ctrl+C to stop the watcher
 echo.
 
 REM Start the auto-git watcher
-node auto-git-watcher.js
+node auto-git-watcher.cjs
 
 pause

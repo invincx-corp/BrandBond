@@ -63,7 +63,7 @@ Write-Host ""
 
 # Start the auto-git watcher
 try {
-    node auto-git-watcher.js
+    node auto-git-watcher.cjs
 } catch {
     Write-Host "❌ Error starting Auto Git Watcher: $_" -ForegroundColor Red
     Read-Host "Press Enter to exit"
