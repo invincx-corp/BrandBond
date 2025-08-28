@@ -133,6 +133,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showDateInviteModal, setShowDateInviteModal] = useState(false);
   const [showAIPromptsModal, setShowAIPromptsModal] = useState(false);
+  const [showAIPrompts, setShowAIPrompts] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
