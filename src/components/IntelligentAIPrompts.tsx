@@ -150,7 +150,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
       </div>
 
       {/* MAIN CONTENT - Prompts with clear hierarchy but compact */}
-      <div className="max-h-40 overflow-y-auto bg-gradient-to-b from-white to-gray-50">
+      <div className="max-h-44 overflow-y-auto bg-gradient-to-b from-white to-gray-50">
         <div className="space-y-2 p-3">
           {filteredPrompts.map((prompt) => {
             const priority = getCategoryPriority(prompt.category);
