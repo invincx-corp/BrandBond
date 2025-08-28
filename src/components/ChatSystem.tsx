@@ -900,8 +900,27 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               </div>
           </div>
 
-          {/* Intelligent AI Prompts */}
-          {currentUserProfile && (
+          {/* AI Prompts Toggle Button */}
+          {currentUserProfile && activeConversation && (
+            <div className="flex justify-center mb-4">
+              <button
+                onClick={() => setShowAIPrompts(!showAIPrompts)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all ${
+                  theme === 'friends'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                    : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'
+                } text-white shadow-lg hover:shadow-xl transform hover:scale-105`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {showAIPrompts ? 'Hide AI Prompts' : 'Show AI Prompts'}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Intelligent AI Prompts - Only visible when toggled */}
+          {currentUserProfile && activeConversation && showAIPrompts && (
             <IntelligentAIPrompts
               currentUser={currentUserProfile}
               otherUser={{
@@ -915,7 +934,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               }}
               theme={theme}
               onSendPrompt={handleIntelligentPrompt}
-              isVisible={true}
+              isVisible={showAIPrompts}
             />
           )}
 
