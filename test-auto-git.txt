@@ -1,0 +1,2 @@
+This is a test file to verify the auto-git watcher is working correctly.
+The watcher should automatically detect this file creation and commit it to GitHub.
