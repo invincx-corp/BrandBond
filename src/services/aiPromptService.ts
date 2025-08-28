@@ -70,29 +70,41 @@ export class AIPromptService {
   static generatePersonalizedPrompts(
     currentUser: UserProfile,
     otherUser: UserProfile,
-    maxPrompts: number = 8
+    maxPrompts: number = 12
   ): AIPrompt[] {
     const prompts: AIPrompt[] = [];
     
-    // 1. Common Interest Prompts (High Priority)
+    // 1. Common Interest Prompts (High Priority - 95% confidence)
     const commonInterestPrompts = this.generateCommonInterestPrompts(currentUser, otherUser);
     prompts.push(...commonInterestPrompts);
 
-    // 2. Different Favorite Prompts (Medium Priority)
+    // 2. Different Favorite Prompts (High Priority - 90% confidence)
     const differentFavoritePrompts = this.generateDifferentFavoritePrompts(currentUser, otherUser);
     prompts.push(...differentFavoritePrompts);
 
-    // 3. Conversation Starter Prompts (Medium Priority)
+    // 3. Non-Common Favorites Discovery Prompts (High Priority - 88% confidence)
+    const nonCommonFavoritesPrompts = this.generateNonCommonFavoritesPrompts(currentUser, otherUser);
+    prompts.push(...nonCommonFavoritesPrompts);
+
+    // 4. Interest Discovery Prompts (High Priority - 85% confidence)
+    const interestDiscoveryPrompts = this.generateInterestDiscoveryPrompts(currentUser, otherUser);
+    prompts.push(...interestDiscoveryPrompts);
+
+    // 5. Conversation Starter Prompts (Medium Priority - 80% confidence)
     const conversationStarterPrompts = this.generateConversationStarterPrompts(currentUser, otherUser);
     prompts.push(...conversationStarterPrompts);
 
-    // 4. Location-based Prompts (Lower Priority)
+    // 6. Location-based Prompts (Medium Priority - 75% confidence)
     const locationPrompts = this.generateLocationBasedPrompts(currentUser, otherUser);
     prompts.push(...locationPrompts);
 
-    // 5. Age-based Prompts (Lower Priority)
+    // 7. Age-based Prompts (Medium Priority - 70% confidence)
     const agePrompts = this.generateAgeBasedPrompts(currentUser, otherUser);
     prompts.push(...agePrompts);
+
+    // 8. Cross-Category Connection Prompts (Medium Priority - 75% confidence)
+    const crossCategoryPrompts = this.generateCrossCategoryConnectionPrompts(currentUser, otherUser);
+    prompts.push(...crossCategoryPrompts);
 
     // Sort by confidence and return top prompts
     return prompts
@@ -190,11 +202,127 @@ export class AIPromptService {
             id: `starter-${category}-${Date.now()}`,
             text: `I'm really into ${category.toLowerCase()}. Have you ever explored ${favorite.name}? It's amazing!`,
             category: 'conversation-starter',
-            confidence: 0.75,
+            confidence: 0.80,
             reasoning: `Introducing other user to a new category they might enjoy`
           });
         }
       }
+    });
+
+    return prompts;
+  }
+
+  private static generateNonCommonFavoritesPrompts(
+    currentUser: UserProfile,
+    otherUser: UserProfile
+  ): AIPrompt[] {
+    const prompts: AIPrompt[] = [];
+    
+    // Find categories where users have completely different favorites
+    this.FAVORITE_CATEGORIES.forEach(category => {
+      const currentFavorites = currentUser.allTimeFavorites[category] || [];
+      const otherFavorites = otherUser.allTimeFavorites[category] || [];
+      
+      if (currentFavorites.length > 0 && otherFavorites.length > 0) {
+        const currentFavorite = currentFavorites[0];
+        const otherFavorite = otherFavorites[0];
+        
+        if (currentFavorite.name !== otherFavorite.name) {
+          // Generate prompts about discovering each other's different favorites
+          prompts.push({
+            id: `discovery-${category}-${Date.now()}`,
+            text: `I love ${currentFavorite.name}! I see you're into ${otherFavorite.name}. What makes ${otherFavorite.name} special to you?`,
+            category: 'different-favorite',
+            confidence: 0.88,
+            reasoning: `Users have different favorites in ${category} - opportunity for mutual discovery`
+          });
+
+          prompts.push({
+            id: `discovery-${category}-2-${Date.now()}`,
+            text: `I'm curious about ${otherFavorite.name}! Have you ever tried ${currentFavorite.name}? I think you'd love it!`,
+            category: 'different-favorite',
+            confidence: 0.85,
+            reasoning: `Introducing each other to different favorites in ${category}`
+          });
+        }
+      }
+    });
+
+    return prompts;
+  }
+
+  private static generateInterestDiscoveryPrompts(
+    currentUser: UserProfile,
+    otherUser: UserProfile
+  ): AIPrompt[] {
+    const prompts: AIPrompt[] = [];
+    
+    // Find interests that are unique to each user
+    const currentUniqueInterests = currentUser.commonInterests.filter(interest => 
+      !otherUser.commonInterests.includes(interest)
+    );
+    
+    const otherUniqueInterests = otherUser.commonInterests.filter(interest => 
+      !currentUser.commonInterests.includes(interest)
+    );
+
+    // Generate prompts about current user's unique interests
+    currentUniqueInterests.forEach(interest => {
+      prompts.push({
+        id: `interest-current-${interest}-${Date.now()}`,
+        text: `I'm really passionate about ${interest}! What interests you most about this topic?`,
+        category: 'conversation-starter',
+        confidence: 0.85,
+        reasoning: `Current user has unique interest in ${interest} - opportunity to share passion`
+      });
+    });
+
+    // Generate prompts about other user's unique interests
+    otherUniqueInterests.forEach(interest => {
+      prompts.push({
+        id: `interest-other-${interest}-${Date.now()}`,
+        text: `I see you're into ${interest}! That sounds fascinating. What got you interested in it?`,
+        category: 'conversation-starter',
+        confidence: 0.85,
+        reasoning: `Other user has unique interest in ${interest} - opportunity to learn and connect`
+      });
+    });
+
+    return prompts;
+  }
+
+  private static generateCrossCategoryConnectionPrompts(
+    currentUser: UserProfile,
+    otherUser: UserProfile
+  ): AIPrompt[] {
+    const prompts: AIPrompt[] = [];
+    
+    // Find connections between different categories
+    const currentCategories = Object.keys(currentUser.allTimeFavorites);
+    const otherCategories = Object.keys(otherUser.allTimeFavorites);
+    
+    // Look for interesting combinations
+    currentCategories.forEach(currentCategory => {
+      otherCategories.forEach(otherCategory => {
+        if (currentCategory !== otherCategory) {
+          const currentFavorites = currentUser.allTimeFavorites[currentCategory] || [];
+          const otherFavorites = otherUser.allTimeFavorites[otherCategory] || [];
+          
+          if (currentFavorites.length > 0 && otherFavorites.length > 0) {
+            const currentFavorite = currentFavorites[0];
+            const otherFavorite = otherFavorites[0];
+            
+            // Generate prompts that connect different categories
+            prompts.push({
+              id: `cross-${currentCategory}-${otherCategory}-${Date.now()}`,
+              text: `I love ${currentFavorite.name} from ${currentCategory.toLowerCase()}! I wonder if you'd enjoy it too, since you like ${otherFavorite.name} from ${otherCategory.toLowerCase()}.`,
+              category: 'conversation-starter',
+              confidence: 0.75,
+              reasoning: `Connecting different favorite categories for discovery`
+            });
+          }
+        }
+      });
     });
 
     return prompts;
@@ -272,12 +400,12 @@ export class AIPromptService {
     currentUser: UserProfile,
     otherUser: UserProfile,
     universe: 'love' | 'friends',
-    maxPrompts: number = 6
+    maxPrompts: number = 8
   ): AIPrompt[] {
     const basePrompts = this.generatePersonalizedPrompts(currentUser, otherUser, maxPrompts);
     
     if (universe === 'love') {
-      // Add love-specific prompts
+      // Add love-specific prompts with enhanced variety
       basePrompts.push({
         id: `love-romantic-${Date.now()}`,
         text: `I feel like we have such a special connection. What's something that makes you feel truly alive?`,
@@ -293,8 +421,24 @@ export class AIPromptService {
         confidence: 0.85,
         reasoning: 'Love universe - emotional depth and vulnerability'
       });
+
+      basePrompts.push({
+        id: `love-discovery-${Date.now()}`,
+        text: `I want to discover every little thing about you. What's a favorite memory that always makes you smile?`,
+        category: 'conversation-starter',
+        confidence: 0.88,
+        reasoning: 'Love universe - deep personal discovery'
+      });
+
+      basePrompts.push({
+        id: `love-future-${Date.now()}`,
+        text: `I can see us building something beautiful together. What's your biggest dream for the future?`,
+        category: 'conversation-starter',
+        confidence: 0.87,
+        reasoning: 'Love universe - future planning and dreams'
+      });
     } else {
-      // Add friends-specific prompts
+      // Add friends-specific prompts with enhanced variety
       basePrompts.push({
         id: `friends-casual-${Date.now()}`,
         text: `Hey! I think we'd get along really well. What's something fun you've been up to lately?`,
@@ -309,6 +453,22 @@ export class AIPromptService {
         category: 'conversation-starter',
         confidence: 0.85,
         reasoning: 'Friends universe - activity and interest-based connection'
+      });
+
+      basePrompts.push({
+        id: `friends-adventure-${Date.now()}`,
+        text: `I love trying new things! What's an adventure or experience you'd recommend to a friend?`,
+        category: 'conversation-starter',
+        confidence: 0.88,
+        reasoning: 'Friends universe - adventure and experience sharing'
+      });
+
+      basePrompts.push({
+        id: `friends-collaboration-${Date.now()}`,
+        text: `I think we could create something amazing together! What's a project or activity you'd love to collaborate on?`,
+        category: 'conversation-starter',
+        confidence: 0.87,
+        reasoning: 'Friends universe - collaboration and teamwork'
       });
     }
 

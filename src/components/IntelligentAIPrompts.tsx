@@ -27,7 +27,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         currentUser,
         otherUser,
         theme,
-        12
+        16
       );
       setPrompts(generatedPrompts);
     }
@@ -81,6 +81,23 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         return 'Age Related';
       default:
         return 'General';
+    }
+  };
+
+  const getCategoryDescription = (category: string) => {
+    switch (category) {
+      case 'common-interest':
+        return 'Things you both love';
+      case 'different-favorite':
+        return 'New discoveries to share';
+      case 'conversation-starter':
+        return 'Great ways to begin chatting';
+      case 'location-based':
+        return 'Places and geography';
+      case 'age-based':
+        return 'Life experiences';
+      default:
+        return 'General conversation';
     }
   };
 
@@ -180,6 +197,11 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
               </div>
             </div>
 
+            {/* Category Description */}
+            <p className="text-xs text-gray-500 mb-2 italic">
+              {getCategoryDescription(prompt.category)}
+            </p>
+
             {/* Prompt Text */}
             <p className="text-sm text-gray-700 leading-relaxed mb-2">
               {prompt.text}
@@ -217,7 +239,12 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
             {filteredPrompts.length} personalized prompts available
           </span>
           <span>
-            Based on {currentUser.commonInterests.length} common interests
+            Based on {currentUser.commonInterests.length} interests & {Object.keys(currentUser.allTimeFavorites).length} favorite categories
+          </span>
+        </div>
+        <div className="mt-2 text-xs text-gray-400 text-center">
+          <span>
+            💡 AI analyzes {Object.keys(currentUser.allTimeFavorites).length + Object.keys(otherUser.allTimeFavorites).length} total categories for maximum conversation potential
           </span>
         </div>
       </div>
