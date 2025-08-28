@@ -151,19 +151,19 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
              {/* Category Filter */}
        <div className="flex flex-wrap gap-1.5 mb-2 justify-center">
         {categories.map(category => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`px-3 py-1 text-xs rounded-full border transition-all ${
-              selectedCategory === category
-                ? theme === 'friends'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-pink-500 text-white border-pink-500'
-                : theme === 'friends'
-                  ? 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
-                  : 'bg-white text-pink-600 border-pink-200 hover:bg-pink-50'
-            }`}
-          >
+                     <button
+             key={category}
+             onClick={() => setSelectedCategory(category)}
+             className={`px-2 py-0.5 text-xs rounded-full border transition-all ${
+               selectedCategory === category
+                 ? theme === 'friends'
+                   ? 'bg-blue-500 text-white border-blue-500'
+                   : 'bg-pink-500 text-white border-pink-500'
+                 : theme === 'friends'
+                   ? 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
+                   : 'bg-white text-pink-600 border-pink-200 hover:bg-pink-50'
+             }`}
+           >
             {category === 'all' ? 'All' : getCategoryLabel(category)}
           </button>
         ))}
