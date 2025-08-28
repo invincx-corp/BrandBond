@@ -94,7 +94,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
   if (!isVisible || prompts.length === 0) return null;
 
   return (
-    <div className={`bg-white rounded-xl border shadow-lg overflow-hidden mb-4 ${
+    <div className={`bg-white rounded-xl border shadow-lg overflow-hidden ${
       theme === 'friends' 
         ? 'border-blue-200' 
         : 'border-pink-200'
