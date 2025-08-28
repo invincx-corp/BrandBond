@@ -232,22 +232,22 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         ))}
       </div>
 
-      {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-gray-200">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>
-            {filteredPrompts.length} personalized prompts available
-          </span>
-          <span>
-            Based on {currentUser.commonInterests.length} interests & {Object.keys(currentUser.allTimeFavorites).length} favorite categories
-          </span>
-        </div>
-        <div className="mt-2 text-xs text-gray-400 text-center">
-          <span>
-            💡 AI analyzes {Object.keys(currentUser.allTimeFavorites).length + Object.keys(otherUser.allTimeFavorites).length} total categories for maximum conversation potential
-          </span>
-        </div>
-      </div>
+             {/* Footer */}
+       <div className="mt-3 pt-3 border-t border-gray-200">
+         <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-2 text-center">
+           <span>
+             {filteredPrompts.length} personalized prompts available
+           </span>
+           <span>
+             Based on {currentUser.commonInterests.length} interests & {Object.keys(currentUser.allTimeFavorites).length} favorite categories
+           </span>
+         </div>
+         <div className="mt-2 text-xs text-gray-400 text-center">
+           <span>
+             💡 AI analyzes {Object.keys(currentUser.allTimeFavorites).length + Object.keys(otherUser.allTimeFavorites).length} total categories for maximum conversation potential
+           </span>
+         </div>
+       </div>
     </div>
   );
 };
