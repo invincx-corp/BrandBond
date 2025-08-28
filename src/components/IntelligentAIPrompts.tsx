@@ -233,7 +233,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
       </div>
 
              {/* Footer */}
-       <div className="mt-3 pt-3 border-t border-gray-200">
+       <div className="mt-2 pt-2 border-t border-gray-200">
          <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-2 text-center">
            <span>
              {filteredPrompts.length} personalized prompts available
