@@ -115,8 +115,8 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200' 
         : 'bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200'
     }`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+             {/* Header */}
+       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center space-x-2">
           <div className={`p-2 rounded-full ${
             theme === 'friends' 
