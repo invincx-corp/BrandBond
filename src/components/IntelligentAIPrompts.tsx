@@ -148,8 +148,8 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         </button>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-3">
+             {/* Category Filter */}
+       <div className="flex flex-wrap gap-2 mb-3 justify-center">
         {categories.map(category => (
           <button
             key={category}
