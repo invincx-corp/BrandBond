@@ -117,23 +117,23 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
     }`}>
              {/* Header */}
        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <div className="flex items-center space-x-2">
-          <div className={`p-2 rounded-full ${
-            theme === 'friends' 
-              ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
-              : 'bg-gradient-to-r from-pink-500 to-purple-500'
-          }`}>
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-gray-800">
-              {theme === 'friends' ? 'Smart Chat Starters' : 'Romantic Conversation Starters'}
-            </h4>
-            <p className="text-xs text-gray-600">
-              AI-powered prompts based on your connection with {otherUser.name}
-            </p>
-          </div>
-        </div>
+                 <div className="flex items-center space-x-2">
+           <div className={`p-1.5 rounded-full ${
+             theme === 'friends' 
+               ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+               : 'bg-gradient-to-r from-pink-500 to-purple-500'
+           }`}>
+             <Sparkles className="w-3 h-3 text-white" />
+           </div>
+           <div>
+             <h4 className="font-medium text-sm text-gray-800">
+               {theme === 'friends' ? 'Smart Chat Starters' : 'Romantic Conversation Starters'}
+             </h4>
+             <p className="text-xs text-gray-500">
+               AI-powered prompts based on your connection with {otherUser.name}
+             </p>
+           </div>
+         </div>
         
         <button
           onClick={() => setShowReasoning(!showReasoning)}
