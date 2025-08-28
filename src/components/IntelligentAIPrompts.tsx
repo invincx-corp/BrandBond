@@ -214,20 +214,20 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
               </div>
             )}
 
-            {/* Action Button */}
-            <button
-              className={`w-full mt-2 px-3 py-1.5 text-xs rounded-lg transition-all ${
-                theme === 'friends'
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
-                  : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSendPrompt(prompt.text);
-              }}
-            >
-              Use This Prompt
-            </button>
+                               {/* Action Button */}
+                   <button
+                     className={`w-full mt-2 px-2 py-1 text-xs rounded-lg transition-all ${
+                       theme === 'friends'
+                         ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
+                         : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600'
+                     }`}
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       onSendPrompt(prompt.text);
+                     }}
+                   >
+                     Use This Prompt
+                   </button>
           </div>
         ))}
       </div>
