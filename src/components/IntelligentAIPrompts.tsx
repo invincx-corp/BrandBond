@@ -163,7 +163,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
       </div>
 
       {/* Prompts Container - Scrollable */}
-      <div className="max-h-80 overflow-y-auto p-3">
+      <div className="max-h-72 overflow-y-auto p-3">
         <div className="space-y-3">
           {filteredPrompts.map((prompt) => (
             <div
