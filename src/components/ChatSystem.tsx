@@ -900,13 +900,11 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               </div>
           </div>
 
-          {/* Messages Area with AI Prompts */}
-          <div className="flex-1 flex flex-col">
-            {/* AI Prompts Section - Fixed at top */}
+                      {/* AI Prompts Section */}
             {currentUserProfile && activeConversation && (
-              <div className="px-4 py-3 border-b border-gray-200 bg-white/50">
+              <div className="mb-3 px-4">
                 {/* Toggle Button */}
-                <div className="flex justify-center mb-3">
+                <div className="flex justify-center mb-2">
                   <button
                     onClick={() => setShowAIPrompts(!showAIPrompts)}
                     className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
@@ -924,7 +922,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                 {/* AI Prompts Component */}
                 {showAIPrompts && (
-                  <div className="max-w-4xl mx-auto">
+                  <div className="max-w-3xl mx-auto">
                     <IntelligentAIPrompts
                       currentUser={currentUserProfile}
                       otherUser={{
@@ -945,8 +943,8 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               </div>
             )}
 
-            {/* Scrollable Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {activeConversation.messages.map((message) => (
               <div
                 key={message.id}
@@ -1053,10 +1051,9 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
             
             <div ref={messagesEndRef} />
           </div>
-        </div>
 
-        {/* Enhanced Message Input with Advanced Features */}
-        <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
+          {/* Enhanced Message Input with Advanced Features */}
+                      <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
             {/* Advanced Feature Row */}
             <div className="flex items-center space-x-2 mb-3">
               <button
