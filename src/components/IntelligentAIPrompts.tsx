@@ -208,7 +208,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
                 
                 {/* Prompt Text - Main content but compact */}
                 <p className="text-xs text-gray-800 leading-relaxed font-medium mb-1.5 line-clamp-2">
-                  {prompt.text}
+                  {prompt.text.replace('{category}', 'this category').replace('{location}', otherUser.location).replace('{age}', otherUser.age.toString())}
                 </p>
                 
                 {/* Action Hint - Compact */}
