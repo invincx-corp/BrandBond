@@ -902,9 +902,9 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                       {/* AI Prompts Section */}
             {currentUserProfile && activeConversation && (
-              <div className="mb-3 px-4">
+              <div className="px-4 py-3 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
                 {/* Toggle Button */}
-                <div className="flex justify-center mb-2">
+                <div className="flex justify-center mb-3">
                   <button
                     onClick={() => setShowAIPrompts(!showAIPrompts)}
                     className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
@@ -922,7 +922,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                 {/* AI Prompts Component */}
                 {showAIPrompts && (
-                  <div className="max-w-3xl mx-auto">
+                  <div className="max-w-4xl mx-auto">
                     <IntelligentAIPrompts
                       currentUser={currentUserProfile}
                       otherUser={{
@@ -944,7 +944,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
             )}
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             {activeConversation.messages.map((message) => (
               <div
                 key={message.id}
