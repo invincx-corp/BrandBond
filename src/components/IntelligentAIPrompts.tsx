@@ -26,7 +26,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         currentUser,
         otherUser,
         theme,
-        8
+        6 // Reduced from 8 to 6 for better compactness
       );
       setPrompts(generatedPrompts);
     }
@@ -35,17 +35,17 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'common-interest':
-        return <Star className="w-4 h-4 text-yellow-600" />;
+        return <Star className="w-3 h-3 text-yellow-600" />;
       case 'different-favorite':
-        return <Lightbulb className="w-4 h-4 text-blue-600" />;
+        return <Lightbulb className="w-3 h-3 text-blue-600" />;
       case 'conversation-starter':
-        return <MessageCircle className="w-4 h-4 text-green-600" />;
+        return <MessageCircle className="w-3 h-3 text-green-600" />;
       case 'location-based':
-        return <MapPin className="w-4 h-4 text-red-600" />;
+        return <MapPin className="w-3 h-3 text-red-600" />;
       case 'age-based':
-        return <Calendar className="w-4 h-4 text-purple-600" />;
+        return <Calendar className="w-3 h-3 text-purple-600" />;
       default:
-        return <Sparkles className="w-4 h-4 text-gray-600" />;
+        return <Sparkles className="w-3 h-3 text-gray-600" />;
     }
   };
 
@@ -92,52 +92,52 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
   if (!isVisible || prompts.length === 0) return null;
 
   return (
-    <div className={`bg-white rounded-xl border-2 shadow-lg overflow-hidden ${
+    <div className={`bg-white rounded-lg border-2 shadow-md overflow-hidden ${
       theme === 'friends' 
         ? 'border-blue-300' 
         : 'border-pink-300'
     }`}>
       
-      {/* PROMINENT Header - Most Important */}
-      <div className={`px-4 py-3 border-b-2 ${
+      {/* PROMINENT Header - Most Important but Compact */}
+      <div className={`px-3 py-2 border-b-2 ${
         theme === 'friends' 
           ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400 text-white' 
           : 'bg-gradient-to-r from-pink-500 to-pink-600 border-pink-400 text-white'
       }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className={`p-2 rounded-full bg-white/20 backdrop-blur-sm`}>
-              <Sparkles className="w-5 h-5" />
+          <div className="flex items-center space-x-2">
+            <div className={`p-1.5 rounded-full bg-white/20 backdrop-blur-sm`}>
+              <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-lg leading-tight">
+              <h4 className="font-bold text-sm leading-tight">
                 {theme === 'friends' ? 'Smart Chat Starters' : 'Romantic Starters'}
-              </h3>
-              <p className="text-sm text-white/90 font-medium">
+              </h4>
+              <p className="text-xs text-white/90 font-medium">
                 AI-powered for {otherUser.name}
               </p>
             </div>
           </div>
           
           <div className="text-right">
-            <div className="text-2xl font-bold">{filteredPrompts.length}</div>
+            <div className="text-lg font-bold">{filteredPrompts.length}</div>
             <div className="text-xs text-white/80">prompts</div>
           </div>
         </div>
       </div>
 
-      {/* SECONDARY Category Filter - Important but not primary */}
-      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-        <div className="flex flex-wrap gap-2 justify-center">
+      {/* SECONDARY Category Filter - Important but Compact */}
+      <div className="px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+        <div className="flex flex-wrap gap-1.5 justify-center">
           {categories.map(category => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-full border-2 transition-all transform hover:scale-105 ${
+              className={`px-2 py-1 text-xs font-medium rounded-full border-2 transition-all transform hover:scale-105 ${
                 selectedCategory === category
                   ? theme === 'friends'
-                    ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                    : 'bg-pink-500 text-white border-pink-500 shadow-md'
+                    ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+                    : 'bg-pink-500 text-white border-pink-500 shadow-sm'
                   : theme === 'friends'
                     ? 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50 hover:border-blue-400'
                     : 'bg-white text-pink-700 border-pink-300 hover:bg-pink-50 hover:border-pink-400'
@@ -149,15 +149,15 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         </div>
       </div>
 
-      {/* MAIN CONTENT - Prompts with clear hierarchy */}
-      <div className="max-h-52 overflow-y-auto bg-gradient-to-b from-white to-gray-50">
-        <div className="space-y-3 p-4">
+      {/* MAIN CONTENT - Prompts with clear hierarchy but compact */}
+      <div className="max-h-40 overflow-y-auto bg-gradient-to-b from-white to-gray-50">
+        <div className="space-y-2 p-3">
           {filteredPrompts.map((prompt) => {
             const priority = getCategoryPriority(prompt.category);
             return (
               <div
                 key={prompt.id}
-                className={`p-3 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer transform hover:scale-[1.02] ${
+                className={`p-2 rounded-lg border-2 transition-all hover:shadow-sm cursor-pointer transform hover:scale-[1.01] ${
                   priority === 'high'
                     ? theme === 'friends'
                       ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400'
@@ -170,11 +170,11 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
                 }`}
                 onClick={() => onSendPrompt(prompt.text)}
               >
-                {/* Prompt Header with Priority Indicators */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-2">
+                {/* Prompt Header with Priority Indicators - Compact */}
+                <div className="flex items-start justify-between mb-1.5">
+                  <div className="flex items-center space-x-1.5">
                     {getCategoryIcon(prompt.category)}
-                    <span className={`text-xs px-2 py-1 rounded-full border font-semibold ${
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full border font-semibold ${
                       priority === 'high'
                         ? theme === 'friends'
                           ? 'bg-blue-200 text-blue-800 border-blue-300'
@@ -188,14 +188,14 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
                       {getCategoryLabel(prompt.category)}
                     </span>
                     {priority === 'high' && (
-                      <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-full font-bold">
-                        ⭐ TOP
+                      <span className="text-xs px-1 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-full font-bold">
+                        ⭐
                       </span>
                     )}
                   </div>
                   
                   <div className="flex items-center space-x-1">
-                    <div className={`w-2 h-2 rounded-full ${
+                    <div className={`w-1.5 h-1.5 rounded-full ${
                       priority === 'high' ? 'bg-green-500' : priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'
                     }`}></div>
                     <span className={`text-xs font-semibold ${
@@ -206,12 +206,12 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
                   </div>
                 </div>
                 
-                {/* Prompt Text - Main content */}
-                <p className="text-sm text-gray-800 leading-relaxed font-medium mb-2">
+                {/* Prompt Text - Main content but compact */}
+                <p className="text-xs text-gray-800 leading-relaxed font-medium mb-1.5 line-clamp-2">
                   {prompt.text}
                 </p>
                 
-                {/* Action Hint */}
+                {/* Action Hint - Compact */}
                 <div className={`text-xs font-medium ${
                   priority === 'high'
                     ? theme === 'friends' ? 'text-blue-600' : 'text-pink-600'
@@ -219,7 +219,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
                     ? theme === 'friends' ? 'text-blue-500' : 'text-pink-500'
                     : 'text-gray-500'
                 }`}>
-                  💬 Click to send this prompt
+                  💬 Click to send
                 </div>
               </div>
             );
@@ -227,13 +227,13 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         </div>
       </div>
 
-      {/* SUBTLE Footer - Least important */}
-      <div className={`px-4 py-2 border-t text-center text-xs ${
+      {/* SUBTLE Footer - Least important and compact */}
+      <div className={`px-3 py-1.5 border-t text-center text-xs ${
         theme === 'friends' 
           ? 'bg-blue-25 border-blue-200 text-blue-600' 
           : 'bg-pink-25 border-pink-200 text-pink-600'
       }`}>
-        <span className="font-medium">💡</span> AI analyzes profiles for perfect conversation starters
+        <span className="font-medium">💡</span> AI-powered conversation starters
       </div>
     </div>
   );
