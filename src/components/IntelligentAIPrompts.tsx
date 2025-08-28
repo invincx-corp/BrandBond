@@ -26,7 +26,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         currentUser,
         otherUser,
         theme,
-        6 // Reduced from 8 to 6 for better compactness
+        12 // Increased from 6 to 12 for better category representation
       );
       setPrompts(generatedPrompts);
     }
