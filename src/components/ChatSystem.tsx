@@ -902,9 +902,9 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                       {/* AI Prompts Section */}
             {currentUserProfile && activeConversation && (
-              <div className="px-4 py-3 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+              <div className="px-4 py-2 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
                 {/* Toggle Button */}
-                <div className="flex justify-center mb-3">
+                <div className="flex justify-center mb-2">
                   <button
                     onClick={() => setShowAIPrompts(!showAIPrompts)}
                     className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all text-sm ${
@@ -922,7 +922,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
                 {/* AI Prompts Component */}
                 {showAIPrompts && (
-                  <div className="max-w-4xl mx-auto">
+                  <div className="max-w-3xl mx-auto mb-2">
                     <IntelligentAIPrompts
                       currentUser={currentUserProfile}
                       otherUser={{
