@@ -172,15 +172,15 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
       {/* Prompts Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {filteredPrompts.map((prompt) => (
-          <div
-            key={prompt.id}
-            className={`p-3 rounded-lg border transition-all cursor-pointer hover:shadow-md ${
-              theme === 'friends' 
-                ? 'bg-white border-blue-200 hover:border-blue-300' 
-                : 'bg-white border-pink-200 hover:border-pink-300'
-            }`}
-            onClick={() => onSendPrompt(prompt.text)}
-          >
+                  <div
+          key={prompt.id}
+          className={`p-2 rounded-lg border transition-all cursor-pointer hover:shadow-md ${
+            theme === 'friends' 
+              ? 'bg-white border-blue-200 hover:border-blue-300' 
+              : 'bg-white border-pink-200 hover:border-pink-300'
+          }`}
+          onClick={() => onSendPrompt(prompt.text)}
+        >
             {/* Prompt Header */}
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center space-x-2">
