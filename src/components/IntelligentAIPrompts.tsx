@@ -174,7 +174,7 @@ const IntelligentAIPrompts: React.FC<IntelligentAIPromptsProps> = ({
         {filteredPrompts.map((prompt) => (
                   <div
           key={prompt.id}
-          className={`p-2 rounded-lg border transition-all cursor-pointer hover:shadow-md ${
+          className={`p-3 rounded-lg border transition-all cursor-pointer hover:shadow-md min-h-[120px] flex flex-col justify-between ${
             theme === 'friends' 
               ? 'bg-white border-blue-200 hover:border-blue-300' 
               : 'bg-white border-pink-200 hover:border-pink-300'
