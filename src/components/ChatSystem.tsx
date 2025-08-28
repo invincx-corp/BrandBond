@@ -1048,7 +1048,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
           </div>
 
           {/* Enhanced Message Input with Advanced Features */}
-                      <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
+          <div className={`bg-white/80 backdrop-blur-sm border-t ${colorScheme.border} p-4`}>
             {/* Advanced Feature Row */}
             <div className="flex items-center space-x-2 mb-3">
               <button
@@ -1132,9 +1132,9 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
                 
                 {/* Typing Indicator */}
                 {isTyping && (
-                                  <div className={`absolute -top-8 left-0 ${colorScheme.bg} ${colorScheme.text} text-xs px-2 py-1 rounded-full`}>
-                  typing...
-                </div>
+                  <div className={`absolute -top-8 left-0 ${colorScheme.bg} ${colorScheme.text} text-xs px-2 py-1 rounded-full`}>
+                    typing...
+                  </div>
                 )}
               </div>
               
