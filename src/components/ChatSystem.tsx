@@ -732,18 +732,10 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
         </div>
       </div>
 
-                {/* Chat Interface */}
-          {activeConversation ? (
-            <div className={`flex-1 flex flex-col backdrop-blur-sm ${
-              theme === 'friends' ? 'bg-blue-50/60' :
-              selectedTheme === 'default' ? 'bg-white/60' :
-              selectedTheme === 'sunset' ? 'bg-orange-50/60' :
-              selectedTheme === 'ocean' ? 'bg-blue-50/60' :
-              selectedTheme === 'forest' ? 'bg-green-50/60' :
-              selectedTheme === 'midnight' ? 'bg-gray-50/60' : 'bg-white/60'
-            }`}>
-              {/* Chat Header */}
-              <div className={`bg-white/80 backdrop-blur-sm border-b ${colorScheme.border} p-4 flex items-center justify-between`}>
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col h-full">
+          {/* Header */}
+          <div className={`bg-white/80 backdrop-blur-sm border-b ${colorScheme.border} p-4`}>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setActiveConversation(null)}
