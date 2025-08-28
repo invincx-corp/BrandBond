@@ -2858,7 +2858,21 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                     <ChatSystem
                       userId={userId}
                       conversations={conversations}
-                                             onSendMessage={(conversationId, message) => {
+                      theme="love"
+                      currentUserProfile={{
+                        id: userId,
+                        name: "Current User",
+                        age: 25,
+                        location: "Mumbai, Maharashtra",
+                        bio: "Passionate about love and connections",
+                        commonInterests: ["Music", "Travel", "Food", "Movies", "Books"],
+                        allTimeFavorites: {
+                          "Fav Singers": [{ id: "1", name: "Arijit Singh", description: "Melodious voice", image: "" }],
+                          "Fav Movies": [{ id: "2", name: "3 Idiots", description: "Comedy drama", image: "" }],
+                          "Fav Travel Destinations": [{ id: "3", name: "Goa", description: "Beach paradise", image: "" }]
+                        }
+                      }}
+                      onSendMessage={(conversationId, message) => {
                          const fullMessage = {
                            ...message,
                            id: Date.now().toString(),

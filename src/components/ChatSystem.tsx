@@ -46,6 +46,8 @@ import {
   Archive,
   Trash
 } from 'lucide-react';
+import IntelligentAIPrompts from './IntelligentAIPrompts';
+import { UserProfile } from '../services/aiPromptService';
 
 interface Message {
   id: string;
@@ -96,6 +98,7 @@ interface ChatSystemProps {
   userId: string;
   conversations: ConversationWithProfile[];
   theme?: 'love' | 'friends';
+  currentUserProfile?: UserProfile;
   onSendMessage: (conversationId: string, message: Omit<Message, 'id' | 'timestamp' | 'status'>) => void;
   onMarkAsRead: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
@@ -112,6 +115,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
   userId,
   conversations,
   theme = 'love',
+  currentUserProfile,
   onSendMessage,
   onMarkAsRead,
   onDeleteConversation,
@@ -175,24 +179,8 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
     focusBorder: 'focus:border-pink-500'
   };
 
-  // AI Chat Prompts for Love Universe
-  const aiPrompts = [
-    "Ask about their favorite travel destination and share a dream vacation idea",
-    "Compliment their music taste and suggest a playlist collaboration",
-    "Share a funny story about your day and ask about theirs",
-    "Ask about their biggest dream and share something you're passionate about",
-    "Compliment their smile and ask what makes them happiest",
-    "Share a favorite quote and ask what inspires them",
-    "Ask about their ideal date and share your perfect evening vision",
-    "Compliment their style and ask about their fashion inspiration",
-    "Share a childhood memory and ask about their favorite growing up moment",
-    "Ask about their biggest fear and share something that challenges you",
-    "Compliment their intelligence and ask about their favorite book",
-    "Share a goal you're working towards and ask about their aspirations",
-    "Ask about their love language and share how you express care",
-    "Compliment their energy and ask what gives them life",
-    "Share a lesson you've learned and ask about their biggest life lesson"
-  ];
+  // AI Chat Prompts - Now handled by IntelligentAIPrompts component
+  // Legacy prompts removed in favor of personalized, intelligent prompts
 
   // Date Invite Templates
   const dateInviteTemplates = [
@@ -315,6 +303,13 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
     if (activeConversation) {
       onSendAIEnhancedMessage(activeConversation.conversation.id, prompt);
       setShowAIPromptsModal(false);
+    }
+  };
+
+  const handleIntelligentPrompt = (prompt: string) => {
+    if (activeConversation) {
+      setMessageInput(prompt);
+      messageInputRef.current?.focus();
     }
   };
 
@@ -904,6 +899,25 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               </div>
           </div>
 
+          {/* Intelligent AI Prompts */}
+          {currentUserProfile && (
+            <IntelligentAIPrompts
+              currentUser={currentUserProfile}
+              otherUser={{
+                id: activeConversation.otherProfile.id,
+                name: activeConversation.otherProfile.name,
+                age: activeConversation.otherProfile.age,
+                location: activeConversation.otherProfile.location,
+                bio: activeConversation.otherProfile.bio || '',
+                commonInterests: activeConversation.otherProfile.commonInterests || [],
+                allTimeFavorites: activeConversation.otherProfile.allTimeFavorites || {}
+              }}
+              theme={theme}
+              onSendPrompt={handleIntelligentPrompt}
+              isVisible={true}
+            />
+          )}
+
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {activeConversation.messages.map((message) => (
@@ -1156,7 +1170,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
         </div>
       )}
 
-      {/* AI Prompts Modal */}
+      {/* AI Prompts Modal - Now handled by IntelligentAIPrompts component */}
       {showAIPromptsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -1171,21 +1185,13 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
                 </button>
               </div>
               <p className="text-gray-600 mt-2">
-                Choose a prompt to send an AI-enhanced message that will help you connect better.
+                This feature has been upgraded to intelligent, personalized prompts that appear in each chat window.
               </p>
-            </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {aiPrompts.map((prompt, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAIEnhancedMessage(prompt)}
-                    className={`p-4 text-left border ${colorScheme.border} rounded-xl hover:${colorScheme.border.replace('border-', 'border-')} ${colorScheme.hover} transition-all duration-200`}
-                  >
-                    <p className="text-sm text-gray-800 font-medium">{prompt}</p>
-                  </button>
-                ))}
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>New Feature:</strong> AI prompts are now personalized for each conversation based on your shared interests and preferences. 
+                  Look for the "Smart Chat Starters" section in your active chat window!
+                </p>
               </div>
             </div>
           </div>

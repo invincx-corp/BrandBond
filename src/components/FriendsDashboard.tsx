@@ -1837,9 +1837,15 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
   };
 
   // Messaging Service Functions
-  const handleSendMessage = useCallback(async (conversationId: string, message: Message) => {
+  const handleSendMessage = useCallback(async (conversationId: string, message: Omit<Message, 'id' | 'timestamp' | 'status'>) => {
     try {
-      const newMessage = await messagingService.sendMessage(conversationId, message);
+      const fullMessage: Message = {
+        ...message,
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        status: 'sent' as const
+      };
+      const newMessage = await messagingService.sendMessage(conversationId, fullMessage);
       // Update conversations state
       setConversations(prev => prev.map(conv => 
         conv.conversation.id === conversationId 
@@ -2775,6 +2781,19 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                   userId={userId}
                   conversations={conversations}
                   theme="friends"
+                  currentUserProfile={{
+                    id: userId,
+                    name: "Current User",
+                    age: 25,
+                    location: "Mumbai, Maharashtra",
+                    bio: "Looking for meaningful friendships",
+                    commonInterests: ["Sports", "Gaming", "Technology", "Music", "Travel"],
+                    allTimeFavorites: {
+                      "Fav Sports": [{ id: "1", name: "Cricket", description: "National sport", image: "" }],
+                      "Fav Games": [{ id: "2", name: "PUBG", description: "Battle royale", image: "" }],
+                      "Fav Tech": [{ id: "3", name: "AI & ML", description: "Future technology", image: "" }]
+                    }
+                  }}
                   onSendMessage={handleSendMessage}
                   onMarkAsRead={handleMarkAsRead}
                   onDeleteConversation={handleDeleteConversation}
