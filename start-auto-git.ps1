@@ -3,7 +3,7 @@
 
 Write-Host "🚀 Starting Auto Git Watcher..." -ForegroundColor Green
 Write-Host "📁 Project: BrandBond" -ForegroundColor Cyan
-Write-Host "🔗 Repository: https://github.com/invincx-corp/BrandBond.git" -ForegroundColor Cyan
+Write-Host "🔗 Repository:" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if Node.js is installed

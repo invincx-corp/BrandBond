@@ -8,7 +8,7 @@ echo    🚀 Auto Git Watcher Starter
 echo ========================================
 echo.
 echo 📁 Project: BrandBond
-echo 🔗 Repository: https://github.com/invincx-corp/BrandBond.git
+echo 🔗 Repository:
 echo.
 
 REM Check if Node.js is installed

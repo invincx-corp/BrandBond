@@ -74,7 +74,7 @@ brandbond-calling/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/invincx-corp/BrandBond.git
+   git clone <REPO_URL>
    cd brandbond-calling
    ```
 
@@ -284,8 +284,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: [docs.brandbond.com](https://docs.brandbond.com)
-- **Issues**: [GitHub Issues](https://github.com/invincx-corp/BrandBond/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/invincx-corp/BrandBond/discussions)
+- **Issues**: <REPO_URL>/issues
+- **Discussions**: <REPO_URL>/discussions
 
 ## 🗺️ Roadmap
 
