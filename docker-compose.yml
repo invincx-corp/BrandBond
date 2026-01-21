@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Signaling Server
+  signaling:
+    build:
+      context: .
+      dockerfile: packages/signaling-server/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./packages/signaling-server:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # SFU Service
+  sfu:
+    build:
+      context: .
+      dockerfile: packages/sfu/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./packages/sfu:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      - signaling
+
+  # Redis for session storage (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # PostgreSQL for persistent data (optional)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: brandbond_calling
+      POSTGRES_USER: brandbond
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:

@@ -1,0 +1,92 @@
+{
+  "name": "brandbond-calling",
+  "version": "1.0.0",
+  "description": "In-house audio & video calling ecosystem for BrandBond",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:signaling\" \"npm run dev:sfu\"",
+    "dev:app": "vite",
+    "dev:signaling": "cd packages/signaling-server && npm run dev",
+    "dev:sfu": "cd packages/sfu && npm run dev",
+    "dev:backend": "tsx src/backend/server.ts",
+    "backend": "tsx src/backend/server.ts",
+    "build": "npm run build:shared && npm run build:signaling && npm run build:sfu",
+    "build:shared": "cd packages/shared && npm run build",
+    "build:signaling": "cd packages/signaling-server && npm run build",
+    "build:sfu": "cd packages/sfu && npm run build",
+    "test": "npm run test:shared && npm run test:signaling && npm run test:sfu",
+    "test:shared": "cd packages/shared && npm test",
+    "test:signaling": "cd packages/signaling-server && npm test",
+    "test:sfu": "cd packages/sfu && npm test",
+    "lint": "eslint packages/*/src/**/*.ts",
+    "lint:fix": "eslint packages/*/src/**/*.ts --fix",
+    "clean": "npm run clean:shared && npm run clean:signaling && npm run clean:sfu",
+    "clean:shared": "cd packages/shared && npm run clean",
+    "clean:signaling": "cd packages/signaling-server && npm run clean",
+    "clean:sfu": "cd packages/sfu && npm run clean",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/uuid": "^9.0.0",
+    "@types/ws": "^8.5.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.0.0",
+    "eslint": "^8.0.0",
+    "postcss": "^8.4.38",
+    "prettier": "^3.0.0",
+    "supabase": "^2.72.8",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/invincx-corp/BrandBond.git"
+  },
+  "keywords": [
+    "webrtc",
+    "calling",
+    "video",
+    "audio",
+    "sfu",
+    "signaling",
+    "typescript",
+    "react"
+  ],
+  "author": "BrandBond Team",
+  "license": "MIT",
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.1.0",
+    "@fortawesome/free-brands-svg-icons": "^7.1.0",
+    "@fortawesome/react-fontawesome": "^3.1.1",
+    "@supabase/supabase-js": "^2.90.1",
+    "axios": "^1.7.2",
+    "classnames": "^2.5.1",
+    "dotenv": "^17.2.3",
+    "emoji-picker-react": "^4.16.1",
+    "framer-motion": "^11.2.10",
+    "lucide-react": "^0.562.0",
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^7.12.0"
+  }
+}

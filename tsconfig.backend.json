@@ -1,0 +1,42 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist/backend",
+    "rootDir": "./src",
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/backend/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*",
+    "src/backend/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/components/**/*",
+    "src/App.tsx",
+    "src/main.tsx"
+  ],
+  "watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriorityPolling",
+    "synchronousWatchDirectory": true,
+    "excludeDirectories": ["**/node_modules", "**/dist", "**/src/components", "**/src/App.tsx", "**/src/main.tsx"],
+    "excludeFiles": ["**/*.js", "**/*.js.map"],
+    "pollingInterval": 50
+  }
+}

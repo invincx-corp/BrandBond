@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrandBond Calling System Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .success { background-color: #d4edda; color: #155724; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .video-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        video {
+            width: 100%;
+            height: 200px;
+            background-color: #000;
+            border-radius: 4px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>BrandBond Calling System Test</h1>
+    
+    <div class="container">
+        <h2>Connection Status</h2>
+        <div id="connectionStatus" class="status disconnected">Disconnected</div>
+        <div id="callStatus" class="status">Not in call</div>
+    </div>
+
+    <div class="container">
+        <h2>Call Setup</h2>
+        <input type="text" id="sessionId" placeholder="Enter Session ID" value="test-session-123">
+        <input type="text" id="participantName" placeholder="Enter Your Name" value="Test User">
+        <div class="controls">
+            <button id="createCall" onclick="createCall()">Create Call</button>
+            <button id="joinCall" onclick="joinCall()">Join Call</button>
+            <button id="leaveCall" onclick="leaveCall()" disabled>Leave Call</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Video Streams</h2>
+        <div class="video-container">
+            <div>
+                <h3>Local Video</h3>
+                <video id="localVideo" autoplay muted playsinline></video>
+            </div>
+            <div>
+                <h3>Remote Video</h3>
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Call Controls</h2>
+        <div class="controls">
+            <button id="muteBtn" onclick="toggleMute()" disabled>Mute</button>
+            <button id="videoBtn" onclick="toggleVideo()" disabled>Disable Video</button>
+            <button id="screenBtn" onclick="toggleScreenShare()" disabled>Share Screen</button>
+            <button id="recordBtn" onclick="toggleRecording()" disabled>Start Recording</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Reactions</h2>
+        <div class="controls">
+            <button onclick="sendReaction('👍')" disabled>👍</button>
+            <button onclick="sendReaction('👎')" disabled>👎</button>
+            <button onclick="sendReaction('❤️')" disabled>❤️</button>
+            <button onclick="sendReaction('🎉')" disabled>🎉</button>
+            <button onclick="sendReaction('👏')" disabled>👏</button>
+            <button onclick="sendReaction('🔥')" disabled>🔥</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>System Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        // Simple test implementation
+        let isConnected = false;
+        let isInCall = false;
+        let isMuted = false;
+        let isVideoEnabled = true;
+        let isScreenSharing = false;
+        let isRecording = false;
+        let localStream = null;
+        let remoteStream = null;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus() {
+            const connectionElement = document.getElementById('connectionStatus');
+            const callElement = document.getElementById('callStatus');
+            
+            connectionElement.className = `status ${isConnected ? 'connected' : 'disconnected'}`;
+            connectionElement.textContent = isConnected ? 'Connected to Signaling Server' : 'Disconnected';
+            
+            callElement.className = `status ${isInCall ? 'connected' : ''}`;
+            callElement.textContent = isInCall ? 'In Call' : 'Not in call';
+        }
+
+        function updateButtons() {
+            const createBtn = document.getElementById('createCall');
+            const joinBtn = document.getElementById('joinCall');
+            const leaveBtn = document.getElementById('leaveCall');
+            const muteBtn = document.getElementById('muteBtn');
+            const videoBtn = document.getElementById('videoBtn');
+            const screenBtn = document.getElementById('screenBtn');
+            const recordBtn = document.getElementById('recordBtn');
+
+            createBtn.disabled = !isConnected || isInCall;
+            joinBtn.disabled = !isConnected || isInCall;
+            leaveBtn.disabled = !isInCall;
+            muteBtn.disabled = !isInCall;
+            videoBtn.disabled = !isInCall;
+            screenBtn.disabled = !isInCall;
+            recordBtn.disabled = !isInCall;
+
+            // Update button text
+            muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+            videoBtn.textContent = isVideoEnabled ? 'Disable Video' : 'Enable Video';
+            screenBtn.textContent = isScreenSharing ? 'Stop Sharing' : 'Share Screen';
+            recordBtn.textContent = isRecording ? 'Stop Recording' : 'Start Recording';
+        }
+
+        async function createCall() {
+            const sessionId = document.getElementById('sessionId').value;
+            const participantName = document.getElementById('participantName').value;
+            
+            if (!sessionId || !participantName) {
+                log('Error: Please enter session ID and participant name');
+                return;
+            }
+
+            try {
+                log(`Creating call session: ${sessionId}`);
+                
+                // Simulate getting user media
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                isInCall = true;
+                log('Call created successfully');
+                updateStatus();
+                updateButtons();
+            } catch (error) {
+                log(`Error creating call: ${error.message}`);
+            }
+        }
+
+        async function joinCall() {
+            const sessionId = document.getElementById('sessionId').value;
+            const participantName = document.getElementById('participantName').value;
+            
+            if (!sessionId || !participantName) {
+                log('Error: Please enter session ID and participant name');
+                return;
+            }
+
+            try {
+                log(`Joining call session: ${sessionId}`);
+                
+                // Simulate getting user media
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                isInCall = true;
+                log('Joined call successfully');
+                updateStatus();
+                updateButtons();
+            } catch (error) {
+                log(`Error joining call: ${error.message}`);
+            }
+        }
+
+        function leaveCall() {
+            log('Leaving call');
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+                remoteStream = null;
+            }
+            
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            
+            isInCall = false;
+            isMuted = false;
+            isVideoEnabled = true;
+            isScreenSharing = false;
+            isRecording = false;
+            
+            updateStatus();
+            updateButtons();
+        }
+
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    isMuted = !audioTrack.enabled;
+                    log(`Audio ${isMuted ? 'muted' : 'unmuted'}`);
+                    updateButtons();
+                }
+            }
+        }
+
+        function toggleVideo() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    isVideoEnabled = videoTrack.enabled;
+                    log(`Video ${isVideoEnabled ? 'enabled' : 'disabled'}`);
+                    updateButtons();
+                }
+            }
+        }
+
+        async function toggleScreenShare() {
+            try {
+                if (isScreenSharing) {
+                    log('Stopping screen share');
+                    isScreenSharing = false;
+                } else {
+                    log('Starting screen share');
+                    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    document.getElementById('localVideo').srcObject = screenStream;
+                    isScreenSharing = true;
+                }
+                updateButtons();
+            } catch (error) {
+                log(`Error with screen share: ${error.message}`);
+            }
+        }
+
+        function toggleRecording() {
+            if (isRecording) {
+                log('Stopping recording');
+                isRecording = false;
+            } else {
+                log('Starting recording');
+                isRecording = true;
+            }
+            updateButtons();
+        }
+
+        function sendReaction(reaction) {
+            log(`Sending reaction: ${reaction}`);
+        }
+
+        // Simulate connection to signaling server
+        function simulateConnection() {
+            setTimeout(() => {
+                isConnected = true;
+                log('Connected to signaling server (simulated)');
+                updateStatus();
+                updateButtons();
+            }, 1000);
+        }
+
+        // Initialize
+        log('BrandBond Calling System Test Page Loaded');
+        log('Simulating connection to signaling server...');
+        simulateConnection();
+        updateStatus();
+        updateButtons();
+    </script>
+</body>
+</html>
