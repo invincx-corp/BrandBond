@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { resolveMatchPercentage } from '../utils/matchPercentage';
 
 type LocationShareRow = {
   id: string;
@@ -97,6 +99,7 @@ export interface ConversationWithEnhancedProfile {
 
 interface ChatContextType {
   // State
+  userId: string | undefined;
   conversations: ConversationWithEnhancedProfile[];
   activeConversation: ConversationWithEnhancedProfile | null;
   unreadCount: number;
@@ -290,6 +293,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (lastMessagesRes.error) throw lastMessagesRes.error;
       if (receiptsRes.error) throw receiptsRes.error;
 
+      const low = (a: string, b: string) => (a < b ? a : b);
+      const high = (a: string, b: string) => (a < b ? b : a);
+
+      const pairs = otherUserIds.map((other: string) => ({ user_low: low(userId, other), user_high: high(userId, other) }));
+      const compatRes = otherUserIds.length
+        ? await supabase
+            .from('user_compatibility')
+            .select('score, user_low, user_high')
+            .in('user_low', pairs.map((p) => p.user_low))
+            .in('user_high', pairs.map((p) => p.user_high))
+        : ({ data: [], error: null } as any);
+      if (compatRes.error) throw compatRes.error;
+
+      const compatibilityByPair = new Map<string, number>();
+      (compatRes.data || []).forEach((row: any) => {
+        const uLow = String(row.user_low);
+        const uHigh = String(row.user_high);
+        if (!uLow || !uHigh) return;
+        const key = uLow < uHigh ? `${uLow}|${uHigh}` : `${uHigh}|${uLow}`;
+        compatibilityByPair.set(key, Number(row.score) || 0);
+      });
+
       const profileById = new Map<string, any>((profilesRes.data || []).map((p: any) => [p.id, p]));
       const lastMessageByConversation = new Map<string, any>();
       (lastMessagesRes.data || []).forEach((m: any) => {
@@ -303,6 +328,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const other = profileById.get(otherId);
         const lastMsg = lastMessageByConversation.get(c.id);
         const lastMessage = lastMsg ? toEnhancedMessage(lastMsg) : createEmptyMessage();
+
+        const matchPct = resolveMatchPercentage({
+          myMatches: [],
+          userId,
+          otherUserId: String(otherId),
+          compatibilityScoreByPair: compatibilityByPair,
+        });
 
         const isLow = c.user_low === userId;
         const isPinned = Boolean(isLow ? c.is_pinned_by_low : c.is_pinned_by_high);
@@ -337,7 +369,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             age: other?.age || 0,
             location: other?.location || '',
             photos: other?.photo_url ? [other.photo_url] : [],
-            matchPercentage: 0,
+            matchPercentage: matchPct,
             commonInterests: [],
             allTimeFavorites: {},
             bio: '',
@@ -380,6 +412,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     },
     [toEnhancedMessage, userId]
+  );
+
+  const refreshActiveConversationIfMatches = useCallback(
+    async (conversationId: string | null | undefined) => {
+      if (!conversationId) return;
+      if (!activeConversation?.conversation?.id) return;
+      if (activeConversation.conversation.id !== conversationId) return;
+      await loadMessagesForConversation(conversationId);
+    },
+    [activeConversation?.conversation?.id, loadMessagesForConversation]
   );
 
   const ensureActiveConversationSubscription = useCallback(
@@ -425,15 +467,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` },
-        () => {
+        (payload: any) => {
+          const row = (payload?.new || payload?.record) as any;
+          const convId = row?.conversation_id ? String(row.conversation_id) : null;
           refreshConversations();
+          void refreshActiveConversationIfMatches(convId);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages', filter: `sender_id=eq.${userId}` },
-        () => {
+        (payload: any) => {
+          const row = (payload?.new || payload?.record) as any;
+          const convId = row?.conversation_id ? String(row.conversation_id) : null;
           refreshConversations();
+          void refreshActiveConversationIfMatches(convId);
         }
       )
       .subscribe();
@@ -456,7 +504,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (conversationsChannel) supabase.removeChannel(conversationsChannel);
       realtimeRef.current = null;
     };
-  }, [refreshConversations, userId]);
+  }, [refreshActiveConversationIfMatches, refreshConversations, userId]);
 
   useEffect(() => {
     if (!activeConversation) return;
@@ -690,7 +738,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw convErr;
       }
 
+      console.log('[ChatContext] get_or_create_conversation ok', {
+        resolvedConversationId,
+        activeConversationId: activeConversation.conversation.id,
+      });
+
       const effectiveConversationId = (resolvedConversationId as string) || activeConversation.conversation.id;
+
+      // If we're chatting in a placeholder/non-canonical conversation id, align UI state to the canonical id.
+      if (effectiveConversationId && effectiveConversationId !== activeConversation.conversation.id) {
+        setActiveConversation((prev) => {
+          if (!prev) return prev;
+          if (prev.otherProfile?.id !== toUserId) return prev;
+          return {
+            ...prev,
+            conversation: {
+              ...prev.conversation,
+              id: effectiveConversationId,
+              participantIds: prev.conversation.participantIds,
+            },
+          };
+        });
+      }
 
       const { data: inserted, error } = await supabase
         .from('messages')
@@ -722,13 +791,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Replace optimistic message id/status with server message
       setConversations((prev) =>
         prev.map((c) => {
-          if (c.conversation.id !== activeConversation.conversation.id) return c;
+          if (c.conversation.id !== activeConversation.conversation.id && c.conversation.id !== effectiveConversationId) return c;
           const nextMessages = (c.messages || []).map((m) => (m.id === optimisticMessageId ? serverMessage : m));
           return {
             ...c,
             messages: nextMessages,
             conversation: {
               ...c.conversation,
+              id: effectiveConversationId,
               lastMessage: serverMessage,
               updatedAt: new Date(),
             },
@@ -737,13 +807,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       setActiveConversation((prev) => {
-        if (!prev || prev.conversation.id !== activeConversation.conversation.id) return prev;
+        if (!prev) return prev;
+        if (prev.otherProfile?.id !== toUserId) return prev;
+
         const nextMessages = (prev.messages || []).map((m) => (m.id === optimisticMessageId ? serverMessage : m));
         return {
           ...prev,
           messages: nextMessages,
           conversation: {
             ...prev.conversation,
+            id: effectiveConversationId,
             lastMessage: serverMessage,
             updatedAt: new Date(),
           },
@@ -1207,6 +1280,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const contextValue: ChatContextType = {
     // State
+    userId,
     conversations,
     activeConversation,
     unreadCount,

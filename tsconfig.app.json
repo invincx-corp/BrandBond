@@ -26,5 +26,5 @@
     "assumeChangesOnlyAffectDirectDependencies": true
   },
   "include": ["src"],
-  "exclude": ["src/backend", "node_modules", "dist"]
+  "exclude": ["src/backend", "supabase/functions", "node_modules", "dist"]
 }

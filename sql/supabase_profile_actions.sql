@@ -46,6 +46,9 @@ as $$
 declare
   v_low uuid;
   v_high uuid;
+  v_limit int;
+  v_count_a int;
+  v_count_b int;
 begin
   if p_user_a is null or p_user_b is null then
     return;
@@ -54,12 +57,37 @@ begin
     return;
   end if;
 
+  -- Exclusivity: limit active accepted romantic matches per user.
+  -- Stored in metadata so it can be changed without redeploying code.
+  v_limit := coalesce((public.app_settings()->>'romantic_match_limit')::int, 1);
+  if v_limit < 1 then
+    v_limit := 1;
+  end if;
+
   if p_user_a < p_user_b then
     v_low := p_user_a;
     v_high := p_user_b;
   else
     v_low := p_user_b;
     v_high := p_user_a;
+  end if;
+
+  -- If we are about to accept a new pair, block if either user is already at limit
+  -- (excluding this pair if it already exists).
+  select count(*) into v_count_a
+  from public.matches m
+  where m.status = 'accepted'
+    and (m.user_low = p_user_a or m.user_high = p_user_a)
+    and not (m.user_low = v_low and m.user_high = v_high);
+
+  select count(*) into v_count_b
+  from public.matches m
+  where m.status = 'accepted'
+    and (m.user_low = p_user_b or m.user_high = p_user_b)
+    and not (m.user_low = v_low and m.user_high = v_high);
+
+  if v_count_a >= v_limit or v_count_b >= v_limit then
+    raise exception 'romantic_exclusivity_violation';
   end if;
 
   insert into public.matches (user_low, user_high, status)

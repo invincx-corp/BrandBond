@@ -3,24 +3,25 @@ import { createPortal } from 'react-dom';
 import { User, LogOut, Edit3, Heart, Users, X, Palette, UserPlus, Trash2, ChevronRight } from 'lucide-react';
 import DashboardService from '../services/dashboardService';
 import { supabase } from '../lib/supabase';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface UserProfileButtonProps {
-  userProfile?: {
+  userProfile: {
     id: string;
     name: string;
-    photos: string[];
+    photos?: string[];
     email?: string;
   };
-  stats?: {
-    datesCount?: number;
-    friendsCount?: number;
+  stats: {
+    datesCount: number;
+    friendsCount: number;
     communitiesCount?: number;
   };
-  onProfileClick: () => void;
-  onSettingsClick: () => void;
-  onLogout: () => void;
-  theme?: 'love' | 'friends';
+  onProfileClick?: () => void;
+  onSettingsClick?: () => void;
+  onLogout?: () => void;
   className?: string;
+  theme?: 'love' | 'friends';
 }
 
 const UserProfileButton: React.FC<UserProfileButtonProps> = ({
@@ -29,9 +30,11 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({
   onProfileClick,
   onSettingsClick,
   onLogout,
-  theme = 'friends',
-  className = ''
+  className = '',
+  theme = 'friends'
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -193,7 +196,17 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({
             {/* 3. Main Menu Options */}
             <div className="p-5 sm:p-6 space-y-4">
               {/* My Account */}
-              <button className="w-full p-4 sm:p-5 text-left bg-white rounded-2xl border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 flex items-center justify-between group">
+              <button
+                onClick={() => {
+                  setShowDropdown(false);
+                  navigate(theme === 'love' ? '/love-dashboard/my-account' : '/friends-dashboard/my-account', {
+                    state: {
+                      returnTo: location.pathname,
+                    },
+                  });
+                }}
+                className="w-full p-4 sm:p-5 text-left bg-white rounded-2xl border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 flex items-center justify-between group"
+              >
                 <div className="flex items-center space-x-4 sm:space-x-5">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-indigo-600 to-pink-600 rounded-xl flex items-center justify-center">
                     <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -254,7 +267,7 @@ const UserProfileButton: React.FC<UserProfileButtonProps> = ({
               <div className="flex space-x-4">
                 <button
                   onClick={() => {
-                    onLogout();
+                    onLogout?.();
                     setShowDropdown(false);
                   }}
                   className="flex-1 p-3 sm:p-4 text-left bg-white rounded-2xl border border-red-200 hover:border-red-300 hover:shadow-lg transition-all duration-200 flex items-center space-x-3 sm:space-x-4 group"

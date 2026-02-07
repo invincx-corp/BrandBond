@@ -1,82 +1,335 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
-import { Heart, Users, MessageCircle, Search, Settings, Home, Compass, Calendar, Star, Music, Film, Book, MapPin, Utensils, ShoppingBag, Gamepad2, Youtube, Trophy, Plane, Camera, Coffee, Headphones, Tv, Car, Dumbbell, Palette, Code, Briefcase, GraduationCap, Baby, PawPrint, Leaf, Zap, Globe, Smartphone, Watch, Shirt, Gift, Sparkles, Target, TrendingUp, Filter, Plus, X, Send, Phone, Video, MoreHorizontal, ThumbsUp, Share2, Bookmark, Bell, User, ChevronRight, ChevronDown, Play, Pause, Volume2, SkipForward, Repeat, Shuffle, Download, ExternalLink, Check, Clock, MapPin as Location, Calendar as CalendarIcon, Users as UsersIcon, ActivitySquare, ArrowLeft, ChevronLeft, DollarSign, ArrowRight, Building2, Users2, Hash, MessageSquare, Award, Globe2, Shield, Crown, Lightbulb, HeartHandshake, Handshake, UserPlus, UserCheck, UserX, UserMinus, UserCog, RefreshCw } from 'lucide-react';
-
-import DashboardService, { DashboardStats, DailyMatch, CommunityPreview, RecentActivity, UserInsight, LocalEvent } from '../services/dashboardService';
-
-import ProfileDetailsModal from './ProfileDetailsModal';
+import {
+  Activity,
+  ArrowLeft,
+  Bell,
+  Building2,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+  Crown,
+  Home,
+  Menu,
+  RefreshCw,
+  Search,
+  Star,
+  Trophy,
+  UserPlus,
+  Users,
+  Users2,
+  X,
+} from 'lucide-react';
+import { useLocalEventsRealtime } from '../hooks/useLocalEventsRealtime';
+import { useMyMenuStatsRealtime } from '../hooks/useMyMenuStatsRealtime';
+import { useMyProfileRealtime } from '../hooks/useMyProfileRealtime';
+import { supabase } from '../lib/supabase';
 
 import CommunityProfileModal from './CommunityProfileModal';
-
 import FanclubProfileModal from './FanclubProfileModal';
-
-import ChatSystem from './ChatSystem';
-
-import messagingService, { ConversationWithProfile, Message } from '../services/messagingService';
-
-import { generatePoeticDescription, defaultFavoriteCategories } from '../utils/poeticBioGenerator';
-import { useMyProfileRealtime } from '../hooks/useMyProfileRealtime';
-import { useMyMenuStatsRealtime } from '../hooks/useMyMenuStatsRealtime';
-import { useLocalEventsRealtime } from '../hooks/useLocalEventsRealtime';
-import { useUserInsightsRealtime } from '../hooks/useUserInsightsRealtime';
-import UserProfileButton from './UserProfileButton';
-import { supabase } from '../lib/supabase';
+import ProfileDetailsModal from './ProfileDetailsModal';
 import ProgressiveOnboardingOverlay from './ProgressiveOnboardingOverlay';
+import FriendsPulsePage from './FriendsPulsePage';
+import UserProfileButton from './UserProfileButton';
 
 interface FriendsDashboardProps {
   userId: string;
   onNavigate: (page: string) => void;
 }
 
+type ActiveTab = 'overview' | 'pulse' | 'matches' | 'communities' | 'fanclubs' | 'events' | 'requests' | 'profile-settings';
+
+type LucideIcon = React.ComponentType<{ className?: string }>;
+
+type NavTab = {
+  id: ActiveTab;
+  label: string;
+  icon: any;
+  route: string;
+  badge?: number;
+};
+
+type UnknownRecord = Record<string, unknown>;
+
+type FriendRequest = {
+  id: string;
+  name: string;
+  profileImage: string;
+  age: string | number;
+  location: string;
+  matchPercentage: number;
+  mutualFriends: number;
+  requestMessage: string;
+  mutualFriendsList: Array<{ id: string; name: string; image: string }>;
+};
+
+type FriendshipMatch = {
+  id: string;
+  name: string;
+  profileImage: string;
+  matchPercentage: number;
+  commonFavorites: string[];
+  mutualFriends: number;
+  mutualFriendsList?: Array<{ id: string | number; name: string; image?: string; profileImage?: string }>;
+};
+
+type ProfileDetailsProfile = FriendRequest | FriendshipMatch;
+
+type FanclubProfile = Record<string, unknown>;
+
+type FriendMatchPreview = {
+  id: string | number;
+  name: string;
+  profileImage?: string;
+  matchPercentage?: number;
+  commonFavorites?: string[];
+} & Record<string, unknown>;
+
+type RecoItem = {
+  id: string | number;
+  isJoined?: boolean;
+  matchPercentage: number;
+} & Record<string, unknown>;
+
+type PostWithId = { id: string | number } & Record<string, unknown>;
+
+type ButtonStyles = {
+  card: string;
+  primary: {
+    green: string;
+    red: string;
+  };
+  tab: {
+    active: string;
+    inactive: string;
+  };
+};
+
+type EventCardModel = {
+  id: string | number;
+  title: string;
+  date: string;
+  attendees: number;
+  maxAttendees: number | null;
+  description: string;
+  category: string;
+  location: string;
+  type: string;
+  image: string;
+  organizer: string;
+  tags: string[];
+};
+
+const EventCard: React.FC<{ event: EventCardModel }> = () => null;
+
+const IndividualPostCard: React.FC<{ post: UnknownRecord; onNavigate: (page: string) => void }> = () => null;
+const FriendshipMatchCard: React.FC<{ profile: UnknownRecord }> = () => null;
+const CommunityPostCard: React.FC<{ post: UnknownRecord; onNavigate: (page: string) => void }> = () => null;
+const FanclubPostCard: React.FC<{ post: UnknownRecord; onNavigate: (page: string) => void }> = () => null;
+const CommunityRecommendationCard: React.FC<{ community: UnknownRecord }> = () => null;
+const FanclubRecommendationCard: React.FC<{ fanclub: UnknownRecord }> = () => null;
+
 const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate }) => {
   const navigate = useNavigate();
-  useLocation();
+  const location = useLocation();
+
+  const isFriendsUniverse = useMemo(() => location.pathname.startsWith('/friends-dashboard'), [location.pathname]);
+  const showBackArrow = useMemo(
+    () => location.pathname !== '/friends-dashboard/social-overview',
+    [location.pathname]
+  );
+
+  const switchUniverse = useCallback(
+    (universe: 'love' | 'friends') => {
+      try {
+        localStorage.setItem('brandbond_last_universe_v1', universe);
+      } catch {
+        // ignore
+      }
+
+      if (universe === 'love') {
+        navigate('/love-dashboard/love-overview');
+      } else {
+        navigate('/friends-dashboard/social-overview');
+      }
+    },
+    [navigate]
+  );
+
+  const demoNotifications: string[] = [];
+  const friendRequestsData: FriendRequest[] = [];
+  const individualPosts: UnknownRecord[] = [];
+  const friendshipMatches: FriendMatchPreview[] = [];
+  const communityPosts: PostWithId[] = [];
+  const communityRecommendations: RecoItem[] = [];
+  const fanclubPosts: PostWithId[] = [];
+  const fanclubsData: RecoItem[] = [];
+  const additionalPosts: UnknownRecord[] = [];
+  const additionalCommunityPosts: UnknownRecord[] = [];
+  const additionalFanclubPosts: UnknownRecord[] = [];
+  const totalFriendshipMatches = 0;
+  const communitiesData: RecoItem[] = [];
+  const friendsNearby = 0;
+  const socialScore = 0;
+  const buttonStyles: ButtonStyles = {
+    card: '',
+    primary: {
+      green: '',
+      red: '',
+    },
+    tab: {
+      active:
+        'flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold transition-all duration-200 shadow-md',
+      inactive:
+        'flex-1 py-2.5 px-4 rounded-xl text-gray-600 font-semibold hover:bg-white/70 transition-all duration-200',
+    },
+  };
+  const handleProfileLike = () => {
+    return;
+  };
+
+  const handleProfileChat = () => {
+    return;
+  };
 
   const myProfileRealtime = useMyProfileRealtime(userId);
   const myMenuStats = useMyMenuStatsRealtime(userId);
   const localEventsRealtime = useLocalEventsRealtime(userId, 12);
-  const userInsightsRealtime = useUserInsightsRealtime(userId);
 
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
+  const [friendshipMatchesSubTab, setFriendshipMatchesSubTab] = useState<'your-friends' | 'find-friends' | 'requests'>('your-friends');
+  const [communitiesSubTab, setCommunitiesSubTab] = useState<'your-groups' | 'explore-new'>('your-groups');
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showProfileDetailsModal, setShowProfileDetailsModal] = useState(false);
+  const [selectedProfileForDetails, setSelectedProfileForDetails] = useState<ProfileDetailsProfile | null>(null);
+  const [showCommunityProfileModal, setShowCommunityProfileModal] = useState(false);
+  const [selectedCommunity] = useState<UnknownRecord | null>(null);
+  const [showFanclubProfileModal, setShowFanclubProfileModal] = useState(false);
+  const [selectedFanclub] = useState<FanclubProfile | null>(null);
 
   const refreshData = useCallback(() => {
     window.location.reload();
   }, []);
 
+  useEffect(() => {
+    if (location.pathname === '/friends-dashboard/friend-requests') {
+      setActiveTab('matches');
+      setFriendshipMatchesSubTab('requests');
+    } else if (location.pathname === '/friends-dashboard/social-overview') {
+      setActiveTab('overview');
+    } else if (location.pathname === '/friends-dashboard/pulse') {
+      setActiveTab('pulse');
+    } else if (location.pathname === '/friends-dashboard/communities') {
+      setActiveTab('communities');
+    } else if (location.pathname === '/friends-dashboard/fanclubs') {
+      setActiveTab('fanclubs');
+    } else if (location.pathname === '/friends-dashboard/matches') {
+      setActiveTab('matches');
+    }
+  }, [location.pathname]);
+
+  const mainTabs = useMemo(
+    () =>
+      [
+        { id: 'overview', label: 'Social Overview', icon: Home, route: '/friends-dashboard/social-overview' },
+        { id: 'pulse', label: 'Pulse', icon: Activity, route: '/friends-dashboard/pulse' },
+        { id: 'matches', label: 'Find Friends', icon: Users, route: '/friends-dashboard/friendship-matches' },
+        { id: 'communities', label: 'Communities', icon: Users2, route: '/friends-dashboard/communities-fanclubs' },
+        { id: 'events', label: 'Events', icon: Calendar, route: '/friends-dashboard/events' },
+      ] satisfies NavTab[],
+    []
+  );
+
+  const [sidebarOpenMobile, setSidebarOpenMobile] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const goToTab = useCallback(
+    (tab: NavTab) => {
+      setActiveTab(tab.id);
+      navigate(tab.route);
+    },
+    [navigate]
+  );
+
+  const friendRequestsContent = (
+    <div className="p-2 sm:p-3 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
+      <div className="text-center mb-3 sm:mb-4 md:mb-8">
+        <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+          Friend Requests
+        </h1>
+      </div>
+      <div className="text-sm text-gray-600">No requests right now.</div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50">
       <ProgressiveOnboardingOverlay userId={userId} />
-
-      {/* Header */}
-
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-cyan-100 shadow-sm">
         <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Left Section - Brand & Back Button */}
-            <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-3 lg:space-x-4">
-              <button
-                type="button"
-                onClick={() => onNavigate('landing')}
-                className="p-1 sm:p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors duration-75 flex-shrink-0"
-                title="Back"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-              </button>
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-nowrap min-w-0">
+              {showBackArrow && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('landing')}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors duration-75 flex-shrink-0"
+                  title="Back"
+                >
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              )}
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-nowrap min-w-0">
+                <button
+                  type="button"
+                  onClick={() => navigate('/friends-dashboard/social-overview')}
+                  className="flex items-center space-x-2 sm:space-x-3 flex-nowrap min-w-0"
+                  title="Friends Dashboard"
+                >
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <div className="text-sm sm:text-base font-bold text-gray-900 whitespace-nowrap">BrandBond</div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">Friends Dashboard</div>
+                  </div>
+                </button>
 
-              <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-3">
-                <span className="text-sm sm:text-base md:text-lg lg:text-lg xl:text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                  BrandBond
-                </span>
+                <div className="hidden sm:flex items-center bg-white/80 border border-cyan-200 rounded-full p-0.5 shadow-sm flex-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => switchUniverse('love')}
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                      !isFriendsUniverse
+                        ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white shadow'
+                        : 'text-gray-600 hover:text-indigo-700'
+                    }`}
+                    title="Go to Dates"
+                  >
+                    Dates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchUniverse('friends')}
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                      isFriendsUniverse
+                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow'
+                        : 'text-gray-600 hover:text-blue-700'
+                    }`}
+                    title="Go to Friends"
+                  >
+                    Friends
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Center Section - Spacer */}
             <div className="flex-1"></div>
 
             {/* Right Section - Mobile Responsive Header Icons with Equal Spacing */}
-            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 lg:space-x-5 xl:space-x-6">
+            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
               {/* Notifications Icon */}
               <button
                 type="button"
@@ -84,7 +337,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                   setShowNotificationsModal(true);
                   navigate('/friends-dashboard/notifications-modal');
                 }}
-                className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation relative"
+                className="p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation relative"
                 title="Notifications"
               >
                 <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -102,31 +355,20 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                   setActiveTab('matches');
                   navigate('/friends-dashboard/friendship-matches');
                 }}
-                className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Search"
               >
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               {/* Refresh Icon */}
-              <button 
+              <button type="button" 
                 onClick={refreshData}
-                className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-blue-600 hover:text-blue-700 active:text-blue-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Refresh Data"
               >
                 <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
-              
-              {/* Switch Icon - Pink/Indigo Colors for Love Dashboard */}
-              <button 
-                onClick={() => onNavigate('love-dashboard')}
-                className="p-1.5 sm:p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
-                title="Switch to Love Dashboard"
-              >
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              
-
               
               {/* User Profile Button */}
               <UserProfileButton
@@ -174,79 +416,132 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
       {/* Main Content */}
 
-      <div className="w-full px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 md:py-6 pb-20 sm:pb-6">
-
-        {/* Tab Navigation - Hidden on Mobile */}
-        <div className="hidden sm:block bg-white/60 backdrop-blur-sm rounded-full p-1 sm:p-1.5 md:p-2 shadow-lg border border-blue-200 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
-          {/* Desktop: Main Navigation Tabs */}
-          <div className="flex space-x-0.5">
-          {[
-            { id: 'overview', label: 'Social Overview', icon: Users },
-            { id: 'matches', label: 'Friendship Matches', icon: Star },
-            { id: 'messages', label: 'Messages', icon: MessageCircle },
-            { id: 'requests', label: 'Friend Requests', icon: UserPlus, badge: friendRequestsData.length },
-            { id: 'communities', label: 'Communities/Fanclubs', icon: Home },
-            { id: 'events', label: 'Events', icon: Calendar }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
+      <div className="w-full flex-1 min-h-0">
+        <div className="flex h-full min-h-0">
+          {/* Desktop left sidebar */}
+          <div
+            className={`hidden sm:block sticky top-0 self-start h-full overflow-y-auto border-r border-gray-200 bg-white/80 backdrop-blur-md transition-all duration-200 ${
+              sidebarCollapsed ? 'w-[72px]' : 'w-[260px]'
+            }`}
+          >
+            <div className="p-3">
               <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  if (tab.id === 'overview') {
-                    navigate('/friends-dashboard/social-overview');
-                  } else if (tab.id === 'matches') {
-                    navigate('/friends-dashboard/friendship-matches');
-                  } else if (tab.id === 'messages') {
-                    navigate('/friends-dashboard/messages');
-                  } else if (tab.id === 'requests') {
-                    navigate('/friends-dashboard/friend-requests');
-                  } else if (tab.id === 'communities') {
-                    navigate('/friends-dashboard/communities-fanclubs');
-                  } else if (tab.id === 'events') {
-                    navigate('/friends-dashboard/events');
-                  }
-                }}
-                className={`flex-1 flex items-center justify-center space-x-2 py-2 sm:py-3 md:py-4 px-2 sm:px-3 md:px-4 rounded-full font-medium transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg transform scale-105'
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-white/80'
-                }`}
+                type="button"
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                className="w-full inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-gray-700"
+                aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
               >
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm md:text-base">{tab.label}</span>
-                {tab.badge && tab.badge > 0 && (
-                  <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-1">
-                    {tab.badge}
-                  </span>
-                )}
+                {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
               </button>
-            );
-          })}
-          </div>
-        </div>
+            </div>
 
-        {/* Tab Content */}
-        <div className="w-full">
-          {activeTab === 'overview' && (
-            <div className="min-h-screen bg-gray-50">
-              {/* Social Media Feed Header */}
-              <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 shadow-sm">
-                <div className="max-w-4xl mx-auto text-center">
-                  <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent mb-1 sm:mb-2">
-                    Your Social Feed
-                  </h1>
-                  <p className="text-gray-600 text-[10px] sm:text-sm">Discover posts, matches, and communities</p>
+            <nav className="px-3 pb-4 space-y-1">
+              {mainTabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => goToTab(tab)}
+                    className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+                      active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={tab.label}
+                  >
+                    <div className="relative">
+                      <Icon className={`w-5 h-5 ${active ? 'text-blue-700' : 'text-gray-600'}`} />
+                      {tab.badge && tab.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
+                          {tab.badge > 9 ? '9+' : tab.badge}
+                        </span>
+                      )}
+                    </div>
+                    {!sidebarCollapsed ? (
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">{tab.label}</div>
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Mobile toggle + overlay */}
+          <div className="sm:hidden fixed top-[72px] left-3 z-40">
+            <button
+              type="button"
+              onClick={() => setSidebarOpenMobile(true)}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white/90 backdrop-blur px-3 py-2 shadow"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+
+          {sidebarOpenMobile ? (
+            <div className="sm:hidden fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpenMobile(false)} />
+              <div className="absolute inset-y-0 left-0 w-[280px] bg-white shadow-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-extrabold text-gray-900">Menu</div>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpenMobile(false)}
+                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="mt-4 space-y-1">
+                  {mainTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const active = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          goToTab(tab);
+                          setSidebarOpenMobile(false);
+                        }}
+                        className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+                          active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${active ? 'text-blue-700' : 'text-gray-600'}`} />
+                        <div className="text-sm font-semibold">{tab.label}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+            </div>
+          ) : null}
 
-              {/* Social Media Feed Content */}
-              <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {/* Left Side - Mixed Social Media Feed */}
-                  <div className="lg:col-span-2 space-y-4 sm:space-y-6 px-3 sm:px-6">
-                    {/* Mixed Feed - All content types scattered throughout with proper card designs */}
+          {/* Content */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 md:py-6 pb-20 sm:pb-6">
+            {/* Tab Content */}
+            <div className="w-full">
+              {activeTab === 'overview' && (
+                <div className="min-h-screen bg-gray-50">
+                  {/* Social Media Feed Header */}
+                  <div className="bg-white/95 backdrop-blur-md border-b border-gray-200 px-3 sm:px-4 py-3 sm:py-4 shadow-sm">
+                    <div className="max-w-4xl mx-auto text-center">
+                      <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+                        Your Social Feed
+                      </h1>
+                      <p className="text-gray-600 text-[10px] sm:text-sm">Discover posts, matches, and communities</p>
+                    </div>
+                  </div>
+
+                  {/* Social Media Feed Content */}
+                  <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                      {/* Left Side - Mixed Social Media Feed */}
+                      <div className="lg:col-span-2 space-y-4 sm:space-y-6 px-3 sm:px-6">
+                        {/* Mixed Feed - All content types scattered throughout with proper card designs */}
                     
                     {/* 1. Individual Post - Instagram Style */}
                     {individualPosts[0] && <IndividualPostCard post={individualPosts[0]} onNavigate={onNavigate} />}
@@ -292,13 +587,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                     {friendshipMatches[1] && <FriendshipMatchCard profile={friendshipMatches[1]} />}
 
-
-
                     {/* 9. Community Post */}
 
                     {communityPosts[1] && <CommunityPostCard post={communityPosts[1]} onNavigate={onNavigate} />}
-
-
 
                     {/* 10. Individual Post */}
 
@@ -393,40 +684,26 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                     <div className="grid grid-cols-2 gap-3 mb-6">
 
                       {[
-
                         { label: 'Friendship Matches', value: totalFriendshipMatches, icon: Star, color: 'from-blue-500 via-cyan-500 to-teal-500' },
-
                         { label: 'Communities', value: communitiesData.length, icon: Building2, color: 'from-cyan-500 via-teal-500 to-blue-500' },
-
                         { label: 'Friends Nearby', value: friendsNearby, icon: Users, color: 'from-teal-500 via-blue-500 to-cyan-500' },
-
-                        { label: 'Social Score', value: `${socialScore}%`, icon: Trophy, color: 'from-yellow-500 to-orange-500' }
-
-                ].map((stat, index) => (
-
-                  <div
-
-                    key={stat.label}
-
-                    className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-300 hover:scale-105 group"
-
-                  >
-
-                    <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-
-                      <stat.icon className="w-6 h-6 text-white" />
-
-                    </div>
+                        { label: 'Social Score', value: `${socialScore}%`, icon: Trophy, color: 'from-yellow-500 to-orange-500' },
+                      ].map((stat) => (
+                        <div
+                          key={stat.label}
+                          className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-300 overflow-hidden border-blue-200 ring-2 ring-blue-300"
+                        >
+                          <div
+                            className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}
+                          >
+                            <stat.icon className="w-6 h-6 text-white" />
+                          </div>
 
                           <div className="text-xl font-bold text-gray-800 mb-1">{stat.value}</div>
-
                           <div className="text-xs text-gray-600">{stat.label}</div>
-
-                  </div>
-
-                ))}
-
-              </div>
+                        </div>
+                      ))}
+                    </div>
 
 
 
@@ -437,80 +714,63 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-200 hover:shadow-xl transition-all duration-300">
 
                         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center space-x-2">
-
-                    <Star className="w-6 h-6 text-blue-500" />
-
-                    <span>Today's Friendship Matches</span>
-
-                  </h3>
+                          <Star className="w-6 h-6 text-blue-500" />
+                          <span>Today's Friendship Matches</span>
+                        </h3>
 
                         <p className="text-gray-600 text-sm mb-4">Discover people who share your interests and could become great friends</p>
 
-                  <button 
-
-                    onClick={() => setActiveTab('matches')}
-
-                    className={buttonStyles.card}
-
-                  >
-
-                    View Matches
-
-                  </button>
-
-                </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('matches')}
+                          className={buttonStyles.card}
+                        >
+                          View Matches
+                        </button>
+                      </div>
 
 
 
                       <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-2xl p-6 border border-cyan-200 hover:shadow-xl transition-all duration-300">
 
                         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center space-x-2">
-
                           <Building2 className="w-6 h-6 text-cyan-500" />
-
-                    <span>Your Communities</span>
-
-                  </h3>
+                          <span>Your Communities</span>
+                        </h3>
 
                         <p className="text-gray-600 text-sm mb-4">Join communities that share your interests and passions</p>
 
-                  <button 
-
-                    onClick={() => setActiveTab('communities')}
-
-                    className={buttonStyles.card}
-
-                  >
-
-                    Explore Communities
-
-                  </button>
-
-                    
-
-                    {/* Friend Requests Quick Access */}
-
-                    {friendRequestsData.length > 0 && (
-
-                      <button 
-
-                        onClick={() => setActiveTab('requests')}
-
-                        className="w-full mt-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full hover:shadow-lg transition-all duration-200 text-sm sm:text-base font-medium hover:scale-105 flex items-center justify-center space-x-2"
-
-                      >
-
-                        <UserPlus className="w-5 h-5" />
-
-                        <span>View Friend Requests ({friendRequestsData.length})</span>
-
-                      </button>
-
-                    )}
-
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('communities')}
+                          className={buttonStyles.card}
+                        >
+                          Explore Communities
+                        </button>
                       </div>
 
-                    </div>
+                      {/* Friend Requests Quick Access */}
+
+                      {friendRequestsData.length > 0 && (
+
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('matches');
+                              setFriendshipMatchesSubTab('requests');
+                            }}
+                            className="w-full mt-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full hover:shadow-lg transition-all duration-200 text-sm sm:text-base font-medium hover:scale-105 flex items-center justify-center space-x-2"
+                          >
+
+                            <UserPlus className="w-5 h-5" />
+
+                            <span>View Friend Requests ({friendRequestsData.length})</span>
+
+                          </button>
+                        </div>
+
+                      )}
 
 
 
@@ -536,7 +796,14 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                         {friendshipMatches.slice(0, 2).map((profile) => (
 
-                          <div key={profile.id} className="relative bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 h-32">
+                          <div
+                            key={String(profile.id)}
+                            className="relative bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 h-32"
+                            onClick={() => {
+                              setSelectedProfileForDetails(profile as unknown as ProfileDetailsProfile);
+                              setShowProfileDetailsModal(true);
+                            }}
+                          >
 
                             {/* Background Profile Image - Blurred */}
 
@@ -544,9 +811,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                               <img 
 
-                                src={profile.profileImage} 
+                                src={typeof profile.profileImage === 'string' ? profile.profileImage : undefined} 
 
-                                alt={`${profile.name}'s profile`}
+                                alt={`${String(profile.name)}'s profile`}
 
                                 className="w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity duration-300"
 
@@ -578,13 +845,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                                 <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-blue-600 font-bold text-lg mx-auto mb-2 group-hover:scale-110 transition-transform border-2 border-white/50">
 
-                                  {profile.name.charAt(0)}
+                                  {String(profile.name).charAt(0)}
 
                                 </div>
 
                                 <h4 className="font-bold text-gray-800 text-sm mb-1 drop-shadow-sm">
 
-                                  {profile.name}
+                                  {String(profile.name)}
 
                                 </h4>
 
@@ -592,7 +859,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                                   <Star className="w-3 h-3 text-yellow-500" />
 
-                                  <span className="text-blue-700 font-semibold text-xs">{profile.matchPercentage}%</span>
+                                  <span className="text-blue-700 font-semibold text-xs">{String(profile.matchPercentage ?? '')}%</span>
 
                                 </div>
 
@@ -611,9 +878,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                                 </div>
 
                                 <span className="inline-block bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white px-3 py-1 rounded-full font-semibold text-xs shadow-lg border border-white/20">
-
-                            {profile.commonFavorites[0]}
-
+                                  {String(profile.commonFavorites?.[0] ?? '')}
                                 </span>
 
                               </div>
@@ -627,690 +892,21 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
                       </div>
 
                       <div className="text-center">
-
-                        <button 
-
-                          onClick={() => setActiveTab('matches')}
-
-                          className={buttonStyles.card}
-
-                        >
-
+                        <button type="button" onClick={() => setActiveTab('matches')} className={buttonStyles.card}>
                           Explore All Matches
-
                         </button>
-
-                      </div>
-
-                    </div>
-
-
-
-                    {/* It's a Connection Section - Mutual Connections */}
-
-                    {mutualConnections.length > 0 && (
-
-                      <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-2xl p-6 border border-cyan-200">
-
-                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex flex-col items-center justify-center space-y-2">
-
-                          <div className="flex items-center space-x-2">
-
-                            <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-teal-400 rounded-full flex items-center justify-center">
-
-                              <Users className="w-4 h-4 text-white" />
-
-                            </div>
-
-                            <span>It's a Connection!</span>
-
-                          </div>
-
-                          <span className="px-3 py-1 bg-gradient-to-r from-cyan-400 to-teal-400 text-white text-xs rounded-full font-medium">
-
-                            {mutualConnections.length} Mutual Connection{mutualConnections.length > 1 ? 's' : ''}
-
-                          </span>
-
-                        </h3>
-
-                        
-
-                        <div className="space-y-3">
-
-                          {mutualConnections.slice(0, 3).map((match) => (
-
-                            <div key={match.id} className="bg-white/80 rounded-xl p-3 border border-cyan-200 hover:shadow-lg transition-all duration-200 hover:scale-105">
-
-                              <div className="flex items-center space-x-3">
-
-                                <img
-
-                                  src={match.profileImage}
-
-                                  alt={match.name}
-
-                                  className="w-10 h-10 rounded-full border-2 border-cyan-200"
-
-                                  onError={(e) => {
-
-                                    const target = e.target as HTMLImageElement;
-
-                                    target.src = fallbackImages[0];
-
-                                  }}
-
-                                />
-
-                                <div className="flex-1 min-w-0">
-
-                                  <h4 className="font-semibold text-gray-800 text-sm truncate">
-
-                                    {match.name}
-
-                                  </h4>
-
-                                  <p className="text-xs text-cyan-600 font-medium">
-
-                                    {match.mutualFriends} Mutual Friends
-
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                              
-
-                              {/* Mutual Connections Profile Circles - Overlapping */}
-
-                              {match.mutualFriendsList && match.mutualFriendsList.length > 0 && (
-
-                                <div className="mt-3">
-
-                                  <div className="text-xs text-gray-500 mb-2">Mutual friends:</div>
-
-                                  <div className="flex items-center">
-
-                                    {match.mutualFriendsList.slice(0, 6).map((friend: any, index: number) => (
-
-                                      <div key={friend.id} className="relative group" style={{ marginLeft: index === 0 ? '0' : '-8px' }}>
-
-                                        <img
-
-                                          src={friend.image || friend.profileImage}
-
-                                          alt={friend.name}
-
-                                          className="w-6 h-6 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform duration-200"
-
-                                          onError={(e) => {
-
-                                            const target = e.target as HTMLImageElement;
-
-                                            target.src = fallbackImages[0];
-
-                                          }}
-
-                                        />
-
-                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-
-                                          {friend.name}
-
-                                        </div>
-
-                                      </div>
-
-                                    ))}
-
-                                  </div>
-
-                                </div>
-
-                              )}
-
-                              
-
-                              <div className="space-y-2 mb-3 mt-2">
-
-                                <div className="flex items-center space-x-2 text-xs text-gray-600">
-
-                                  <MessageCircle className="w-3 h-3 text-gray-600" />
-
-                                  <span>Both messaged each other</span>
-
-                                </div>
-
-                                <div className="flex items-center space-x-2 text-xs text-gray-600">
-
-                                  <Users className="w-3 h-3 text-gray-600" />
-
-                                  <span>Mutual interest confirmed</span>
-
-                                </div>
-
-                              </div>
-
-                              
-
-                              <div className="flex space-x-2">
-
-                                <button
-
-                                  onClick={() => {
-
-                                    setSelectedProfile(match);
-
-                                    setShowProfileModal(true);
-                                    navigate(`/friends-dashboard/profile-modal/${match.id}`);
-
-                                  }}
-
-                                  className="flex-1 px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-teal-400 text-white text-xs rounded-full font-medium hover:shadow-lg transition-all duration-200"
-
-                                >
-
-                                  View Profile
-
-                                </button>
-
-                                <button
-
-                                  onClick={() => {
-
-                                    setActiveChat(match);
-
-                                    setActiveTab('messages');
-
-                                  }}
-
-                                  className="flex-1 px-3 py-1.5 bg-gradient-to-r from-blue-400 to-cyan-400 text-white text-xs rounded-full font-medium hover:shadow-lg transition-all duration-200"
-
-                                >
-
-                                  Chat
-
-                                </button>
-
-                              </div>
-
-                            </div>
-
-                          ))}
-
-                        </div>
-
-                        
-
-                        {mutualConnections.length > 3 && (
-
-                          <div className="text-center mt-4">
-
-                            <button className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-teal-400 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm">
-
-                              View All {mutualConnections.length} Connections
-
-                            </button>
-
-                          </div>
-
-                        )}
-
-                      </div>
-
-                    )}
-
-
-
-                    {/* Daily Social Challenge and It's a Connection - STACKED */}
-
-                    <div className="space-y-4">
-
-                      {/* Daily Social Challenge Card */}
-
-                      <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-2xl p-6 border border-cyan-200">
-
-                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center justify-center space-x-2">
-
-                          <Trophy className="w-6 h-6 text-cyan-500" />
-
-                          <span>Today's Social Challenge</span>
-
-                        </h3>
-
-                        {dailyChallenge.isCompleted && (
-
-                          <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium mb-4 inline-block">
-
-                              Completed
-
-                          </span>
-
-                        )}
-
-                        
-
-                        <div className="bg-white/80 rounded-xl p-4 mb-4">
-
-                          <p className="text-gray-700 text-sm mb-3 text-center leading-relaxed">
-
-                            🤝 <strong>Challenge:</strong> {dailyChallenge.title}
-
-                          </p>
-
-                          
-
-                          {/* Progress Display */}
-
-                          <div className="flex flex-col items-center justify-center space-y-2 mb-3">
-
-                            <span className="text-gray-600 text-sm text-center">
-
-                              Progress: {dailyChallenge.completed}/{dailyChallenge.target} completed
-
-                            </span>
-
-                            <div className="w-32 bg-gray-200 rounded-full h-2">
-
-                              <div 
-
-                                className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 h-2 rounded-full transition-all duration-500"
-
-                                style={{ width: `${(dailyChallenge.completed / dailyChallenge.target) * 100}%` }}
-
-                              ></div>
-
-                            </div>
-
-                          </div>
-
-
-
-                          {/* Reward Display */}
-
-                          <div className="text-center">
-
-                            <span className="text-sm text-cyan-600 font-medium">
-
-                              Reward: {dailyChallenge.reward}
-
-                            </span>
-
-                          </div>
-
-
-
-                          {/* Progress Details */}
-
-                          {dailyChallenge.progress.length > 0 && (
-
-                            <div className="mt-3 p-2 bg-cyan-50 rounded-lg">
-
-                              <p className="text-xs text-cyan-700 font-medium mb-2 text-center">Recent Progress:</p>
-
-                              <div className="space-y-1">
-
-                                {dailyChallenge.progress.slice(-2).map((progress, index) => (
-
-                                  <div key={index} className="text-xs text-cyan-600 flex items-center space-x-2 justify-center">
-
-                                  <MessageCircle className="w-3 h-3 text-cyan-600" />
-
-                                    <span>Message sent to <strong>{progress.profileName}</strong></span>
-
-                                  </div>
-
-                                ))}
-
-                              </div>
-
-                            </div>
-
-                          )}
-
-                        </div>
-
-                        
-
-                        <div className="text-center">
-
-                          <button 
-
-                            onClick={handleTakeChallenge}
-
-                            disabled={dailyChallenge.isCompleted}
-
-                            className={`w-full px-6 py-3 rounded-full font-medium transition-all duration-200 ${
-
-                              dailyChallenge.isCompleted
-
-                                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-
-                                : 'bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white hover:scale-105'
-
-                            }`}
-
-                          >
-
-                            {dailyChallenge.isCompleted ? 'Challenge Completed!' : 'Take Challenge'}
-
-                          </button>
-
-                        </div>
-
-                      </div>
-
-
-
-                      {/* It's a Connection Hint Card */}
-
-                      <div className="bg-gradient-to-r from-teal-50 via-cyan-50 to-teal-100 rounded-2xl p-6 border border-teal-200">
-
-                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center justify-center space-x-2">
-
-                          <Sparkles className="w-6 h-6 text-teal-500" />
-
-                          <span>It's a Connection Magic</span>
-
-                        </h3>
-
-                        
-
-                        <div className="bg-white/80 rounded-xl p-4 mb-4">
-
-                          <p className="text-gray-700 text-sm mb-3 text-center leading-relaxed">
-
-                            🤝 <strong>Discover:</strong> When both of you show mutual interest, magic happens!
-
-                          </p>
-
-                          
-
-                          {/* Connection Status Display */}
-
-                          <div className="flex flex-col items-center justify-center space-y-2 mb-3">
-
-                            <span className="text-gray-600 text-sm text-center">
-
-                              Current Connections: {mutualConnections.length}
-
-                            </span>
-
-                            <div className="w-32 bg-teal-200 rounded-full h-2">
-
-                              <div 
-
-                                className="bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-500 h-2 rounded-full transition-all duration-500"
-
-                                style={{ width: `${Math.min((mutualConnections.length / 10) * 100, 100)}%` }}
-
-                              ></div>
-
-                            </div>
-
-                          </div>
-
-
-
-                          {/* Connection Description */}
-
-                          <div className="text-center">
-
-                            <span className="text-sm text-teal-600 font-medium">
-
-                              {mutualConnections.length > 0 ? 'You have beautiful connections!' : 'Start building connections!'}
-
-                            </span>
-
-                          </div>
-
-
-
-                          {/* Recent Connections Display */}
-
-                          {mutualConnections.length > 0 && (
-
-                            <div className="mt-3 p-2 bg-teal-50 rounded-lg">
-
-                              <p className="text-xs text-teal-700 font-medium mb-2 text-center">Recent Connections:</p>
-
-                              <div className="space-y-1">
-
-                                {mutualConnections.slice(-2).map((match, index) => (
-
-                                  <div key={index} className="text-xs text-teal-600 flex items-center space-x-2 justify-center">
-
-                                    <Users className="w-3 h-3 text-teal-600" />
-
-                                    <span>Connected with <strong>{match.name}</strong></span>
-
-                                  </div>
-
-                                ))}
-
-                              </div>
-
-                            </div>
-
-                          )}
-
-                        </div>
-
-                        
-
-                        <div className="text-center">
-
-                          <button 
-
-                            onClick={() => setActiveTab('matches')}
-
-                            className="w-full px-6 py-3 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base hover:scale-105"
-
-                          >
-
-                            {mutualConnections.length > 0 ? 'View All Connections' : 'Discover Connections'}
-
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-
-
-                    {/* Bottom Row - 3 COLUMNS WITH EQUAL SPACING */}
-
-                    <div className="grid grid-cols-1 gap-4">
-
-                      {/* Social Insights */}
-
-                      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-200 hover:shadow-lg transition-all duration-200">
-
-                        <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center space-x-2">
-
-                          <Target className="w-5 h-5 text-blue-500" />
-
-                          <span>Insights</span>
-
-                        </h3>
-
-                        <div className="space-y-3">
-
-                          <div className="bg-white/80 rounded-xl p-3">
-                            <div className="text-xs font-semibold text-gray-700 mb-2">Top categories</div>
-                            <div className="grid grid-cols-3 gap-2">
-                              {(
-                                Object.entries(userInsightsRealtime.insights?.compatibility_trends || {})
-                                  .map(([k, v]) => ({ key: k, value: Number(v) || 0 }))
-                                  .sort((a, b) => b.value - a.value)
-                                  .slice(0, 3)
-                              ).map((item) => (
-                                <div
-                                  key={item.key}
-                                  className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 p-2 text-center"
-                                >
-                                  <div className="text-[10px] uppercase tracking-wide text-gray-600 truncate">
-                                    {item.key}
-                                  </div>
-                                  <div className="text-sm font-bold text-gray-800">{item.value}%</div>
-                                </div>
-                              ))}
-                              {Object.keys(userInsightsRealtime.insights?.compatibility_trends || {}).length === 0 && (
-                                <div className="col-span-3 text-center text-xs text-gray-600">No insights yet</div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="bg-white/80 rounded-xl p-3">
-                            <div className="text-xs font-semibold text-gray-700 mb-2">Your highlights</div>
-                            <div className="space-y-1">
-                              <div className="text-xs text-gray-700">
-                                Interests:{' '}
-                                <span className="font-medium">
-                                  {(userInsightsRealtime.insights?.primary_interests || []).slice(0, 3).join(', ') || '—'}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-700">
-                                Traits:{' '}
-                                <span className="font-medium">
-                                  {(userInsightsRealtime.insights?.personality_traits || []).slice(0, 2).join(', ') || '—'}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-700">
-                                Patterns:{' '}
-                                <span className="font-medium">
-                                  {(userInsightsRealtime.insights?.lifestyle_patterns || []).slice(0, 2).join(', ') || '—'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                        </div>
-
-                      </div>
-
-
-
-                      {/* Social Journey Progress */}
-
-                      <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-2xl p-4 border border-cyan-200 hover:shadow-lg transition-all duration-200">
-
-                        <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center space-x-2">
-
-                          <Compass className="w-5 h-5 text-cyan-500" />
-
-                          <span>Progress</span>
-
-                        </h3>
-
-                        <div className="space-y-3">
-
-                          <div className="bg-white/80 rounded-xl p-3 text-center">
-
-                            <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center mx-auto mb-2">
-
-                              <Users className="w-6 h-6 text-white" />
-
-                            </div>
-
-                            <h4 className="font-semibold text-gray-800 text-sm mb-1">Communities Joined</h4>
-
-                            <p className="text-2xl font-bold text-blue-600">{communitiesData.length}</p>
-
-                          </div>
-
-                          <div className="bg-white/80 rounded-xl p-3 text-center">
-
-                            <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-teal-400 rounded-full flex items-center justify-center mx-auto mb-2">
-
-                              <Star className="w-6 h-6 text-white" />
-
-                            </div>
-
-                            <h4 className="font-semibold text-gray-800 text-sm mb-1">Friendship Score</h4>
-
-                            <p className="text-2xl font-bold text-cyan-600">{socialScore}%</p>
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-
-
-                      {/* Community & Fanclub Recommendations */}
-
-                      <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-2xl p-4 border border-teal-200 hover:shadow-lg transition-all duration-200">
-
-                        <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center space-x-2">
-
-                          <Building2 className="w-5 h-5 text-teal-500" />
-
-                          <span>Recommendations</span>
-
-                        </h3>
-
-                        <div className="space-y-3">
-
-                          {communitiesData.slice(0, 2).map((community) => (
-
-                            <div key={community.id} className="bg-white/80 rounded-xl p-3 hover:shadow-md transition-all duration-200 hover:scale-105">
-
-                              <div className="flex items-center space-x-3">
-
-                                <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
-
-                                  <span className="text-white font-bold text-sm">{community.name.charAt(0)}</span>
-
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-
-                                  <h4 className="font-semibold text-gray-800 text-sm truncate">{community.name}</h4>
-
-                                  <p className="text-xs text-gray-600">{community.matchPercentage}%</p>
-
-                                </div>
-
-                              </div>
-
-                            </div>
-
-                          ))}
-
-                          <button 
-
-                            onClick={() => setActiveTab('communities')}
-
-                            className="w-full py-2 px-4 bg-gradient-to-r from-teal-500 to-blue-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
-
-                          >
-
-                            View All Recommendations
-
-                          </button>
-
-                        </div>
-
                       </div>
 
                     </div>
 
                   </div>
-
                 </div>
 
               </div>
-
             </div>
+          </div>
 
-          )}
-
-
+              )}
 
           {activeTab === 'matches' && (
 
@@ -1338,7 +934,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                 <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 p-1">
 
-                  <button 
+                  <button type="button" 
 
                                       onClick={() => {
                     setFriendshipMatchesSubTab('your-friends');
@@ -1354,7 +950,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                   </button>
 
-                  <button 
+                  <button type="button" 
 
                                       onClick={() => {
                     setFriendshipMatchesSubTab('find-friends');
@@ -1370,6 +966,17 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFriendshipMatchesSubTab('requests');
+                    }}
+                    className={`${friendshipMatchesSubTab === 'requests' ? buttonStyles.tab.active : buttonStyles.tab.inactive}`}
+                  >
+                    <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1.5 sm:mr-2" />
+                    <span className="text-xs sm:text-sm">Requests</span>
+                  </button>
+
                       </div>
 
                     </div>
@@ -1378,7 +985,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
               {/* Content Area - Populated based on selected sub-tab */}
 
-              {friendshipMatchesSubTab === 'your-friends' ? (
+              {friendshipMatchesSubTab === 'requests' ? (
+                friendRequestsContent
+              ) : friendshipMatchesSubTab === 'your-friends' ? (
 
                 <div className="space-y-4 sm:space-y-6">
 
@@ -1402,9 +1011,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
 
-                    {individualPosts.slice(0, 3).map((post, i) => (
+                    {individualPosts.slice(0, 3).map((post, index) => (
 
-                      <IndividualPostCard key={post.id} post={post} onNavigate={onNavigate} />
+                      <IndividualPostCard key={String((post as { id?: unknown })?.id ?? index)} post={post} onNavigate={onNavigate} />
 
                     ))}
 
@@ -1422,13 +1031,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                         <Users className="w-8 h-8 sm:w-10 sm:h-10 text-green-400" />
 
-                    </div>
+                      </div>
 
                       <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No friends connected yet</h3>
 
                       <p className="text-gray-600 text-sm sm:text-base mb-4">Start connecting with people to build your friendship network</p>
 
-                  </div>
+                    </div>
 
                   )}
 
@@ -1456,13 +1065,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
 
-                    {friendshipMatches.map((profile, i) => (
+                    {friendshipMatches.map((profile) => (
 
                       <FriendshipMatchCard key={profile.id} profile={profile} />
 
-                ))}
+                    ))}
 
-              </div>
+                  </div>
 
                 </div>
 
@@ -1472,457 +1081,15 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
           )}
 
+          {activeTab === 'pulse' && (
 
+            <div className="-mx-2 sm:mx-0">
 
-          {activeTab === 'messages' && (
-            <div className="h-[calc(100vh-200px)] sm:h-[calc(100vh-250px)] overflow-hidden">
-              {isMessagingInitialized ? (
-                <ChatSystem
-                  userId={userId}
-                  conversations={conversations}
-                  theme="friends"
-                  currentUserProfile={{
-                    id: userId,
-                    name: myProfileRealtime.profile?.full_name || "Current User",
-                    age: 25,
-                    location: "Mumbai, Maharashtra",
-                    bio: "Looking for meaningful friendships",
-                    commonInterests: ["Sports", "Gaming", "Technology", "Music", "Travel"],
-                    allTimeFavorites: {
-                      "Fav Sports": [{ id: "1", name: "Cricket", description: "National sport", image: "" }],
-                      "Fav Games": [{ id: "2", name: "PUBG", description: "Battle royale", image: "" }],
-                      "Fav Tech": [{ id: "3", name: "AI & ML", description: "Future technology", image: "" }]
-                    }
-                  }}
-                  onSendMessage={handleSendMessage}
-                  onMarkAsRead={handleMarkAsRead}
-                  onDeleteConversation={handleDeleteConversation}
-                  onBlockUser={handleBlockUser}
-                  onReportUser={handleReportUser}
-                  onStartVideoCall={handleStartVideoCall}
-                  onStartVoiceCall={handleStartVoiceCall}
-                  onShareLocation={handleShareLocation}
-                  onSendDateInvite={handleSendDateInvite}
-                  onSendAIEnhancedMessage={handleSendAIEnhancedMessage}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1.5 sm:mb-2">Loading Messages</h3>
-                    <p className="text-gray-600 text-xs sm:text-sm">Initializing your chat system...</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-
-
-          {activeTab === 'requests' && (
-
-            <div className="p-2 sm:p-3 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-
-              <div className="text-center mb-3 sm:mb-4 md:mb-8">
-
-                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-1 sm:mb-2">
-
-                  Friend Requests
-
-                </h1>
-
-                <p className="text-gray-600 text-xs sm:text-sm md:text-base lg:text-lg">People who want to connect with you</p>
-
-              </div>
-
-              
-
-              {/* Friend Request Cards - Redesigned with Love Universe Card Aesthetics */}
-
-              <div className="space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8">
-
-                {friendRequestsData.map((request) => (
-
-                  <div 
-
-                    key={request.id} 
-
-                    className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-blue-200 ring-2 ring-blue-300"
-
-                  >
-
-                    <div className="p-3 sm:p-4 md:p-6 lg:p-8">
-
-                      {/* Header with Profile Info - Matching Love Universe Profile Style */}
-
-                      <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-4 md:space-x-6 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
-
-                        <div className="flex-shrink-0 flex justify-center sm:justify-start">
-
-                          <img 
-
-                            src={request.profileImage} 
-
-                            alt={request.name}
-
-                            className="w-16 h-16 sm:w-18 md:w-20 lg:w-24 rounded-full object-cover border-2 border-blue-200 shadow-lg"
-
-                            onError={(e) => {
-
-                              const target = e.target as HTMLImageElement;
-
-                              target.src = fallbackImages[0];
-
-                            }}
-
-                          />
-
-                        </div>
-
-                        
-
-                        <div className="flex-1 min-w-0 text-center sm:text-left">
-
-                          <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 md:space-x-3 mb-2">
-
-                            <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">
-
-                              {request.name}
-
-                            </h3>
-
-                            <div className="flex items-center justify-center sm:justify-start space-x-2">
-
-                              <div className="bg-blue-100 p-1 sm:p-1.5 rounded-full">
-
-                                <Check className="w-3 h-3 sm:w-4 h-4 text-blue-600" />
-
-                              </div>
-
-                              <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-
-                                New
-
-                              </span>
-
-                            </div>
-
-                          </div>
-
-                          <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-2">
-
-                            {request.age} • {request.location}
-
-                          </p>
-
-                          <div className="inline-flex items-center space-x-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 text-white rounded-full text-xs sm:text-sm font-bold shadow-lg">
-
-                            {request.matchPercentage}%
-
-                          </div>
-
-                        </div>
-
-
-
-                        {/* Mutual Friends Section - Compact Header */}
-
-                        <div className="flex-shrink-0 flex flex-col items-center space-y-1">
-
-                          <div className="flex -space-x-1 sm:-space-x-2">
-
-                            {request.mutualFriendsList.map((friend, index) => (
-
-                              <img 
-
-                                key={friend.id}
-
-                                src={friend.image} 
-
-                                alt={friend.name}
-
-                                className="w-5 h-5 sm:w-6 h-6 md:w-7 h-7 rounded-full object-cover border-2 border-white shadow-sm"
-
-                                onError={(e) => {
-
-                                  const target = e.target as HTMLImageElement;
-
-                                  target.src = fallbackImages[0];
-
-                                }}
-
-                              />
-
-                            ))}
-
-                          </div>
-
-                          <span className="text-xs text-gray-600 font-medium">{request.mutualFriends} mutual</span>
-
-                        </div>
-
-
-
-                        {/* View Profile Button - Top Right */}
-
-                        <button 
-
-                          onClick={() => handleViewProfile(request)}
-
-                          className="flex-shrink-0 w-full sm:w-auto px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 hover:scale-105"
-
-                        >
-
-                          <User className="w-4 h-4 sm:w-5 h-5" />
-
-                          <span className="text-sm sm:text-base md:text-lg font-medium">View Profile</span>
-
-                        </button>
-
-                      </div>
-
-
-
-                      {/* Personal Message Section */}
-
-                      <div className="mb-3 sm:mb-4">
-
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-blue-200">
-
-                          <div className="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
-
-                            <div className="flex-shrink-0 flex justify-center sm:justify-start">
-
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center shadow-sm">
-
-                                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-
-                              </div>
-
-                            </div>
-
-                            <div className="flex-1 min-w-0 text-center sm:text-left">
-
-                              <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 mb-2">
-
-                                <h4 className="text-xs sm:text-sm font-medium text-blue-600">Message from {request.name}</h4>
-
-                                <span className="text-xs text-blue-500 bg-blue-100 px-1.5 sm:px-2 py-0.5 rounded-full font-medium">New</span>
-
-                              </div>
-
-                              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-2 sm:p-3 border border-blue-200 shadow-sm">
-
-                                <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">
-
-                                  {request.requestMessage}
-
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-
-
-                      {/* About Section - Full Width */}
-
-                      <div className="mb-3 sm:mb-4">
-
-                        <div className="p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 border-b border-gray-100">
-
-                          <h4 className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3 lg:mb-4 xl:mb-5">About {request.name}</h4>
-
-                          <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-2 md:mb-3 lg:mb-4 xl:mb-5">✨ Poetic Bio crafted from their All Time Favorites</p>
-
-                          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-100 rounded-lg sm:rounded-xl md:rounded-2xl lg:rounded-3xl p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 border border-blue-200">
-
-                            <p className="text-gray-700 leading-relaxed text-xs sm:text-sm md:text-base italic">
-
-                              "A soul who finds joy in shared passions and common interests. From {request.commonFavorites.slice(0, 3).map(fav => fav.replace('Fav ', '')).join(', ')} to {request.commonFavorites.slice(-2).map(fav => fav.replace('Fav ', '')).join(' and ')}, we discover the beautiful connections that make friendship meaningful."
-
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-
-
-                      {/* Favorites Sections - Mobile Responsive Layout */}
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
-
-                        {/* What They Liked Section - Tab Design Style */}
-
-                        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-100 rounded-lg sm:rounded-xl md:rounded-2xl lg:rounded-3xl p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 border border-blue-200">
-
-                          <h4 className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 mb-1.5 sm:mb-2 flex items-center space-x-1.5 sm:space-x-2">
-
-                            <Heart className="w-3 h-3 sm:w-4 h-4 md:w-5 md:h-5 text-blue-500" />
-
-                            <span className="text-xs sm:text-sm md:text-base">What They Liked From Your Favorites</span>
-
-                          </h4>
-
-                          
-
-                          {/* Liked Favorites - Tab Style */}
-
-                          <div className="flex space-x-1 sm:space-x-1.5 md:space-x-2 overflow-x-auto pb-1 sm:pb-2 scrollbar-hide">
-
-                            {request.likedFavorites.map((favorite, index) => (
-
-                              <span
-
-                                key={index}
-
-                                className="flex-shrink-0 px-1 sm:px-1.5 md:px-2 py-0.5 sm:py-0.5 md:py-1 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs font-medium rounded-full border border-blue-600 shadow-sm"
-
-                              >
-
-                                {favorite.replace('Fav ', '')}
-
-                              </span>
-
-                            ))}
-
-                          </div>
-
-                        </div>
-
-
-
-                        {/* Common Favorites Section - Tab Design Style */}
-
-                        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-100 rounded-lg sm:rounded-xl md:rounded-2xl lg:rounded-3xl p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 border border-blue-200">
-
-                          <h4 className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 mb-1.5 sm:mb-2 flex items-center space-x-1.5 sm:space-x-2">
-
-                            <Star className="w-3 h-3 sm:w-4 h-4 md:w-5 md:h-5 text-blue-500" />
-
-                            <span className="text-xs sm:text-sm md:text-base">Common Favorites Between You</span>
-
-                          </h4>
-
-                          
-
-                          {/* Common Favorites - Tab Style */}
-
-                          <div className="flex space-x-1 sm:space-x-1.5 md:space-x-2 overflow-x-auto pb-1 sm:pb-2 scrollbar-hide">
-
-                            {request.commonFavorites.map((favorite, index) => (
-
-                              <span
-
-                                key={index}
-
-                                className="flex-shrink-0 px-1 sm:px-1.5 md:px-2 py-0.5 sm:py-0.5 md:py-1 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs font-medium rounded-full border border-blue-600 shadow-sm"
-
-                              >
-
-                                {favorite.replace('Fav ', '')}
-
-                              </span>
-
-                            ))}
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-
-
-
-
-
-
-                      {/* Action Buttons - Friends Universe Design */}
-
-                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 sm:space-x-3 mb-3 sm:mb-4">
-
-                        <button className={buttonStyles.primary.green}>
-
-                          Accept Request
-
-                        </button>
-
-                        <button className={buttonStyles.primary.cyan}>
-
-                          Message First
-
-                        </button>
-
-                        <button className="flex-1 sm:flex-none px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-full hover:shadow-lg transition-all duration-200 text-sm sm:text-base md:text-lg font-medium hover:scale-105 border border-red-600">
-
-                          Decline
-
-                        </button>
-
-                      </div>
-
-
-
-
-
-                    </div>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-
-
-              {/* Empty State */}
-
-              {friendRequestsData.length === 0 && (
-
-                <div className="text-center py-12 sm:py-16">
-
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-
-                    <UserPlus className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-blue-400" />
-
-                  </div>
-
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800 mb-2 sm:mb-3">No friend requests yet</h3>
-
-                  <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6">When people send you friend requests, they'll appear here</p>
-
-                  <button 
-
-                    onClick={() => setActiveTab('matches')}
-
-                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base"
-
-                  >
-
-                    Explore Matches
-
-                  </button>
-
-                </div>
-
-              )}
+              <FriendsPulsePage />
 
             </div>
 
           )}
-
 
 
           {activeTab === 'communities' && (
@@ -1955,7 +1122,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                 <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 p-1">
 
-                  <button 
+                  <button type="button" 
 
                                       onClick={() => {
                     setCommunitiesSubTab('your-groups');
@@ -1971,7 +1138,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                   </button>
 
-                  <button 
+                  <button type="button" 
 
                                       onClick={() => {
                     setCommunitiesSubTab('explore-new');
@@ -2023,9 +1190,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
 
-                      {communityPosts.slice(0, 3).map((post, i) => (
+                      {communityPosts.slice(0, 3).map((post) => (
 
-                        <CommunityPostCard key={post.id} post={post} onNavigate={onNavigate} />
+                        <CommunityPostCard key={String(post.id)} post={post} onNavigate={onNavigate} />
 
                       ))}
 
@@ -2043,7 +1210,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                           <Building2 className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
 
-                  </div>
+                        </div>
 
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No communities joined yet</h3>
 
@@ -2081,13 +1248,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
 
-                      {fanclubPosts.slice(0, 3).map((post, i) => (
+                      {fanclubPosts.slice(0, 3).map((post) => (
 
                         <FanclubPostCard key={post.id} post={post} onNavigate={onNavigate} />
 
-                ))}
+                      ))}
 
-              </div>
+                    </div>
 
 
 
@@ -2143,13 +1310,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                       {communitiesData
 
-                        .filter(community => !community.isJoined && community.matchPercentage >= 70)
+                        .filter((community) => !community.isJoined && community.matchPercentage >= 70)
 
                         .slice(0, 6)
 
-                        .map((community, i) => (
+                        .map((community) => (
 
-                          <CommunityRecommendationCard key={community.id} community={community} />
+                          <CommunityRecommendationCard key={String(community.id)} community={community} />
 
                         ))}
 
@@ -2183,13 +1350,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                       {fanclubsData
 
-                        .filter(fanclub => !fanclub.isJoined && fanclub.matchPercentage >= 70)
+                        .filter((fanclub) => !fanclub.isJoined && fanclub.matchPercentage >= 70)
 
                         .slice(0, 6)
 
-                        .map((fanclub, i) => (
+                        .map((fanclub) => (
 
-                          <FanclubRecommendationCard key={fanclub.id} fanclub={fanclub} />
+                          <FanclubRecommendationCard key={String(fanclub.id)} fanclub={fanclub} />
 
                         ))}
 
@@ -2223,13 +1390,13 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                       {communityRecommendations
 
-                        .filter(community => community.matchPercentage >= 70)
+                        .filter((community) => community.matchPercentage >= 70)
 
                         .slice(0, 6)
 
                         .map((community) => (
 
-                          <CommunityRecommendationCard key={community.id} community={community} />
+                          <CommunityRecommendationCard key={String(community.id)} community={community} />
 
                         ))}
 
@@ -2265,18 +1432,18 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
               {/* Events Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                {(localEventsRealtime.loading ? [] : localEventsRealtime.events).map((event: any) => (
+                {(localEventsRealtime.loading ? [] : localEventsRealtime.events).map((event: unknown) => (
                   <EventCard
-                    key={event.id}
+                    key={String((event as { id?: unknown })?.id)}
                     event={{
-                      id: event.id,
-                      title: event.title,
-                      date: event.start_time ? new Date(event.start_time).toLocaleString() : 'TBD',
-                      attendees: event.currentAttendees ?? 0,
-                      maxAttendees: event.max_attendees ?? null,
-                      description: event.description,
-                      category: event.event_type || 'Community',
-                      location: event.location,
+                      id: (event as { id: string | number }).id,
+                      title: (event as { title: string }).title,
+                      date: (event as { start_time?: string | null }).start_time ? new Date((event as { start_time: string }).start_time).toLocaleString() : 'TBD',
+                      attendees: (event as { currentAttendees?: number | null }).currentAttendees ?? 0,
+                      maxAttendees: (event as { max_attendees?: number | null }).max_attendees ?? null,
+                      description: (event as { description?: string | null }).description ?? '',
+                      category: (event as { event_type?: string | null }).event_type || 'Community',
+                      location: (event as { location?: string | null }).location ?? '',
                       type: 'offline',
                       image: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=300&fit=crop',
                       organizer: 'BrandBond',
@@ -2295,13 +1462,9 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
           )}
 
-
-
-
-
         </div>
-
       </div>
+
 
 
 
@@ -2319,7 +1482,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Notifications</h3>
 
-              <button 
+              <button type="button" 
 
                 onClick={() => setShowNotificationsModal(false)}
 
@@ -2368,20 +1531,19 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
       )}
 
 
-
       {/* Mobile Bottom Navigation Bar - Only Visible on Mobile */}
 
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-lg">
 
         <div className="flex items-center justify-between px-2 py-2.5">
 
-          {[
+          {([
 
             { id: 'overview', label: 'Home', icon: Users },
 
-            { id: 'matches', label: 'Match', icon: Star },
+            { id: 'pulse', label: 'Pulse', icon: Activity },
 
-            { id: 'messages', label: 'Chat', icon: MessageCircle },
+            { id: 'matches', label: 'Match', icon: Star },
 
             { id: 'requests', label: 'Req', icon: UserPlus, badge: friendRequestsData.length },
 
@@ -2389,7 +1551,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
             { id: 'events', label: 'Events', icon: Calendar }
 
-          ].map((tab) => {
+          ] satisfies Array<{ id: ActiveTab; label: string; icon: LucideIcon; badge?: number }>).map((tab) => {
 
             const Icon = tab.icon;
 
@@ -2399,7 +1561,15 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                 key={tab.id}
 
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === 'overview') navigate('/friends-dashboard/social-overview');
+                  if (tab.id === 'pulse') navigate('/friends-dashboard/pulse');
+                  if (tab.id === 'matches') navigate('/friends-dashboard/friendship-matches');
+                  if (tab.id === 'communities') navigate('/friends-dashboard/communities-fanclubs');
+                  if (tab.id === 'events') navigate('/friends-dashboard/events');
+                  if (tab.id === 'requests') navigate('/friends-dashboard/friend-requests');
+                }}
 
                 className={`flex flex-col items-center justify-center space-y-1 py-1 px-1 rounded-lg transition-all duration-200 flex-1 min-w-0 ${
 
@@ -2425,7 +1595,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">
 
-                      {tab.badge}
+                      {tab.badge > 9 ? '9+' : tab.badge}
 
                     </span>
 
@@ -2547,7 +1717,7 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
 
           onClose={() => setShowFanclubProfileModal(false)}
 
-          fanclub={selectedFanclub}
+          fanclub={selectedFanclub as never}
 
           userProfile={{
 
@@ -2566,6 +1736,10 @@ const FriendsDashboard: React.FC<FriendsDashboardProps> = ({ userId, onNavigate 
         />
 
       )}
+
+      </div>
+
+    </div>
 
     </div>
 

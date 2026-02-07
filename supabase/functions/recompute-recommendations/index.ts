@@ -10,6 +10,23 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function jsonResponse(body: any, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function withTimeout<T>(label: string, ms: number, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(`${label}_timeout_${ms}ms`), ms);
+  try {
+    return await fn(controller.signal);
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 function normalizeText(s: unknown): string {
   return String(s ?? "").trim().toLowerCase();
 }
@@ -178,17 +195,26 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const startedAt = Date.now();
+  console.log("recompute-recommendations: start", { url: req.url, method: req.method });
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log("recompute-recommendations: missing env");
+    return jsonResponse({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }, 500);
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    global: {
+      headers: {
+        // Make the intent explicit in case runtime behaves differently.
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+    },
+  });
 
   const url = new URL(req.url);
   const batchSize = Math.max(1, Math.min(50, Number(url.searchParams.get("batch")) || 10));
@@ -198,41 +224,45 @@ Deno.serve(async (req) => {
   const nowIso = new Date().toISOString();
   const lockId = crypto.randomUUID();
 
-  const { data: rows, error: selectErr } = await supabase
-    .from("recommendation_recompute_queue")
-    .select("id,user_id,attempts")
-    .is("processed_at", null)
-    .is("locked_at", null)
-    .order("created_at", { ascending: true })
-    .limit(batchSize);
+  const callTimeoutMs = Math.max(2_000, Math.min(15_000, Number(url.searchParams.get("timeoutMs")) || 10_000));
+
+  console.log("recompute-recommendations: selecting queue", { batchSize });
+  const { data: rows, error: selectErr } = await withTimeout("select_queue", callTimeoutMs, (signal) =>
+    supabase
+      .from("recommendation_recompute_queue")
+      .select("id,user_id,attempts")
+      .is("processed_at", null)
+      .is("locked_at", null)
+      .order("created_at", { ascending: true })
+      .limit(batchSize)
+      .abortSignal(signal)
+  );
 
   if (selectErr) {
-    return new Response(JSON.stringify({ error: selectErr.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log("recompute-recommendations: select queue error", { error: selectErr.message });
+    return jsonResponse({ error: selectErr.message, step: "select_queue" }, 500);
   }
 
   const queue = rows || [];
   if (!queue.length) {
-    return new Response(JSON.stringify({ ok: true, processed: 0 }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log("recompute-recommendations: no jobs");
+    return jsonResponse({ ok: true, processed: 0, elapsedMs: Date.now() - startedAt });
   }
 
   // Lock rows
   const ids = queue.map((r) => r.id);
-  const { error: lockErr } = await supabase
-    .from("recommendation_recompute_queue")
-    .update({ locked_at: nowIso, locked_by: lockId })
-    .in("id", ids);
+  console.log("recompute-recommendations: locking jobs", { count: ids.length, lockId });
+  const { error: lockErr } = await withTimeout("lock_jobs", callTimeoutMs, (signal) =>
+    supabase
+      .from("recommendation_recompute_queue")
+      .update({ locked_at: nowIso, locked_by: lockId })
+      .in("id", ids)
+      .abortSignal(signal)
+  );
 
   if (lockErr) {
-    return new Response(JSON.stringify({ error: lockErr.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.log("recompute-recommendations: lock error", { error: lockErr.message });
+    return jsonResponse({ error: lockErr.message, step: "lock_jobs" }, 500);
   }
 
   let processedCount = 0;
@@ -241,11 +271,18 @@ Deno.serve(async (req) => {
     const userId = item.user_id as string;
 
     try {
+      console.log("recompute-recommendations: processing user", { userId });
       // Load me
       const [meRes, myInterestsRes, myPrefsRes] = await Promise.all([
-        supabase.from("profiles").select("id,age,gender,location,intent").eq("id", userId).maybeSingle(),
-        supabase.from("user_interests").select("*").eq("user_id", userId).maybeSingle(),
-        supabase.from("user_preferences").select("*").eq("user_id", userId).maybeSingle(),
+        withTimeout("load_me", callTimeoutMs, (signal) =>
+          supabase.from("profiles").select("id,age,gender,location,intent").eq("id", userId).maybeSingle().abortSignal(signal)
+        ),
+        withTimeout("load_my_interests", callTimeoutMs, (signal) =>
+          supabase.from("user_interests").select("*").eq("user_id", userId).maybeSingle().abortSignal(signal)
+        ),
+        withTimeout("load_my_prefs", callTimeoutMs, (signal) =>
+          supabase.from("user_preferences").select("*").eq("user_id", userId).maybeSingle().abortSignal(signal)
+        ),
       ]);
 
       if (meRes.error) throw meRes.error;
@@ -258,20 +295,26 @@ Deno.serve(async (req) => {
 
       if (!me || !myInterests || !myPrefs) {
         // Not ready yet -> mark processed so it doesn't loop forever; triggers will re-enqueue on completion.
-        await supabase
-          .from("recommendation_recompute_queue")
-          .update({ processed_at: new Date().toISOString(), locked_at: null, locked_by: null, last_error: null })
-          .eq("id", item.id);
+        await withTimeout("mark_not_ready", callTimeoutMs, (signal) =>
+          supabase
+            .from("recommendation_recompute_queue")
+            .update({ processed_at: new Date().toISOString(), locked_at: null, locked_by: null, last_error: null })
+            .eq("id", item.id)
+            .abortSignal(signal)
+        );
         processedCount++;
         continue;
       }
 
       // Candidate pool: profiles excluding me
-      const { data: candidates, error: candErr } = await supabase
-        .from("profiles")
-        .select("id,age,gender,location,intent")
-        .neq("id", userId)
-        .limit(candidatesCap);
+      const { data: candidates, error: candErr } = await withTimeout("load_candidates", callTimeoutMs, (signal) =>
+        supabase
+          .from("profiles")
+          .select("id,age,gender,location,intent")
+          .neq("id", userId)
+          .limit(candidatesCap)
+          .abortSignal(signal)
+      );
       if (candErr) throw candErr;
 
       const candidateIds = (candidates || []).map((c) => c.id).filter(Boolean);
@@ -279,10 +322,14 @@ Deno.serve(async (req) => {
       // Load candidates interests + preferences in bulk
       const [candInterestsRes, candPrefsRes] = await Promise.all([
         candidateIds.length
-          ? supabase.from("user_interests").select("*").in("user_id", candidateIds)
+          ? withTimeout("load_candidate_interests", callTimeoutMs, (signal) =>
+              supabase.from("user_interests").select("*").in("user_id", candidateIds).abortSignal(signal)
+            )
           : Promise.resolve({ data: [], error: null } as any),
         candidateIds.length
-          ? supabase.from("user_preferences").select("*").in("user_id", candidateIds)
+          ? withTimeout("load_candidate_prefs", callTimeoutMs, (signal) =>
+              supabase.from("user_preferences").select("*").in("user_id", candidateIds).abortSignal(signal)
+            )
           : Promise.resolve({ data: [], error: null } as any),
       ]);
 
@@ -329,36 +376,44 @@ Deno.serve(async (req) => {
       const top = scored.slice(0, 50);
 
       if (top.length) {
-        const { error: upsertErr } = await supabase
-          .from("match_recommendations")
-          .upsert(top, { onConflict: "user_id,recommended_user_id" });
+        const { error: upsertErr } = await withTimeout("upsert_recommendations", callTimeoutMs, (signal) =>
+          supabase
+            .from("match_recommendations")
+            .upsert(top, { onConflict: "user_id,recommended_user_id" })
+            .abortSignal(signal)
+        );
         if (upsertErr) throw upsertErr;
       }
 
       // Mark processed
-      await supabase
-        .from("recommendation_recompute_queue")
-        .update({ processed_at: new Date().toISOString(), locked_at: null, locked_by: null, last_error: null })
-        .eq("id", item.id);
+      await withTimeout("mark_processed", callTimeoutMs, (signal) =>
+        supabase
+          .from("recommendation_recompute_queue")
+          .update({ processed_at: new Date().toISOString(), locked_at: null, locked_by: null, last_error: null })
+          .eq("id", item.id)
+          .abortSignal(signal)
+      );
 
       processedCount++;
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
+      console.log("recompute-recommendations: user error", { userId, error: msg });
       // Increment attempts; unlock for retry
-      await supabase
-        .from("recommendation_recompute_queue")
-        .update({
-          attempts: (item.attempts || 0) + 1,
-          locked_at: null,
-          locked_by: null,
-          last_error: msg,
-        })
-        .eq("id", item.id);
+      await withTimeout("mark_failed", callTimeoutMs, (signal) =>
+        supabase
+          .from("recommendation_recompute_queue")
+          .update({
+            attempts: (item.attempts || 0) + 1,
+            locked_at: null,
+            locked_by: null,
+            last_error: msg,
+          })
+          .eq("id", item.id)
+          .abortSignal(signal)
+      );
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, processed: processedCount, lockId }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  console.log("recompute-recommendations: done", { processed: processedCount, elapsedMs: Date.now() - startedAt });
+  return jsonResponse({ ok: true, processed: processedCount, lockId, elapsedMs: Date.now() - startedAt });
 });

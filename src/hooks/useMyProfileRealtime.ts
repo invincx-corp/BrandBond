@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+function normalizeStoragePublicUrl(url: string): string {
+  if (!url) return url;
+  if (url.includes('/storage/v1/object/public/')) return url;
+  return url.replace('/storage/v1/object/profile-photos/', '/storage/v1/object/public/profile-photos/');
+}
+
 export type MyProfile = {
   id: string;
   full_name: string | null;
@@ -29,17 +35,19 @@ export function useMyProfileRealtime(userId: string): UseMyProfileRealtimeState 
       return;
     }
 
-    const [profileRes, photosRes] = await Promise.all([
+    const [profileRes, photosRes, authRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email').eq('id', userId).maybeSingle(),
       supabase
         .from('user_photos')
         .select('photo_url, is_main_photo, photo_order')
         .eq('user_id', userId)
         .order('photo_order', { ascending: true }),
+      supabase.auth.getUser(),
     ]);
 
     if (profileRes.error) throw profileRes.error;
     if (photosRes.error) throw photosRes.error;
+    if (authRes.error) throw authRes.error;
 
     const photos = (photosRes.data as any[]) || [];
     const mainPhoto = photos.find((p) => p.is_main_photo) || null;
@@ -50,12 +58,15 @@ export function useMyProfileRealtime(userId: string): UseMyProfileRealtimeState 
       .map((p) => p.photo_url)
       .filter(Boolean);
 
-    const urls = mainPhoto?.photo_url ? [mainPhoto.photo_url, ...orderedUrls.filter((u) => u !== mainPhoto.photo_url)] : orderedUrls;
+    const urlsRaw = mainPhoto?.photo_url
+      ? [mainPhoto.photo_url, ...orderedUrls.filter((u) => u !== mainPhoto.photo_url)]
+      : orderedUrls;
+    const urls = urlsRaw.map((u) => normalizeStoragePublicUrl(String(u)));
 
     setProfile({
       id: userId,
       full_name: profileRes.data?.full_name ?? null,
-      email: profileRes.data?.email ?? null,
+      email: (profileRes.data?.email ?? authRes.data.user?.email ?? null) as string | null,
       photo_urls: urls,
     });
   }, [userId]);

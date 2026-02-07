@@ -6,9 +6,9 @@ interface NotificationsPanelProps {
   onClose: () => void;
   notifications: any[];
   unreadCount: number;
-  onMarkAsRead: (notificationId: number) => void;
+  onMarkAsRead: (notificationId: string) => void;
   onMarkAllAsRead: () => void;
-  onDeleteNotification: (notificationId: number) => void;
+  onDeleteNotification: (notificationId: string) => void;
   onNotificationAction: (notification: any) => void;
   formatTimestamp: (timestamp: string) => string;
 }

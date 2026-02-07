@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, Users, Star, MessageCircle, Calendar, Sparkles, Music, Film, BookOpen, Utensils, ShoppingBag, Smartphone, Trophy, Palette, Coffee, Globe, Zap, MessageSquare, Search, User } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -19,6 +19,8 @@ import RegisterOnboarding from './components/RegisterOnboarding';
 import RegisterOnboardingGuard from './components/RegisterOnboardingGuard';
 import LoveDashboard from './components/LoveDashboard';
 import FriendsDashboard from './components/FriendsDashboard';
+import MyAccount from './pages/MyAccount';
+import EditInterests from './pages/EditInterests';
 import UniverseSelection from './components/UniverseSelection';
 import CommunityPage from './components/CommunityPage';
 import FanclubPage from './components/FanclubPage';
@@ -26,6 +28,7 @@ import IndividualProfilePage from './components/IndividualProfilePage';
 import ChatSystem from './components/ChatSystem';
 import { ChatProvider } from './contexts/ChatContext';
 import { supabase } from './lib/supabase';
+import LoveDyadSpacePage from './pages/LoveDyadSpacePage';
 
 function OnboardingGate({ userId }: { userId: string | null }) {
   const location = useLocation();
@@ -154,16 +157,22 @@ function OnboardingGate({ userId }: { userId: string | null }) {
  function UniverseSelectionRoute() {
    const navigate = useNavigate();
 
-   return (
-     <UniverseSelection
-       onSelectUniverse={(universe) => {
-         if (universe === 'love') navigate('/love-dashboard/love-overview');
-         if (universe === 'friends') navigate('/friends-dashboard/social-overview');
-         if (universe === 'both') navigate('/love-dashboard/love-overview');
-       }}
-       onBack={() => navigate('/')}
-     />
-   );
+   const lastUniverse = (() => {
+     try {
+       const value = localStorage.getItem('brandbond_last_universe_v1');
+       if (value === 'love' || value === 'friends') return value;
+       return null;
+     } catch {
+       return null;
+     }
+   })();
+
+   useEffect(() => {
+     const target = lastUniverse === 'friends' ? '/friends-dashboard/social-overview' : '/love-dashboard/love-overview';
+     navigate(target, { replace: true });
+   }, [lastUniverse, navigate]);
+
+   return null;
  }
 
  function RegisterAuthRoute({ mode }: { mode?: 'signin' }) {
@@ -220,12 +229,25 @@ function App() {
         <Route path="/love-dashboard" element={<Navigate to="/love-dashboard/love-overview" replace />} />
         <Route path="/love-dashboard/*" element={<LoveDashboardRoute userId={userId || ''} />}>
           <Route index element={<LoveDashboardIndexRedirect />} />
-          <Route path="love-overview" element={null} />
-          <Route path="romantic-matches" element={null} />
-          <Route path="its-a-match" element={null} />
-          <Route path="love-messages" element={null} />
-          <Route path="date-planning" element={null} />
-          <Route path="date-requests" element={null} />
+          <Route path="love-overview" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="romantic-matches" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="its-a-match" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="date-planning" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="date-requests" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="pulse" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="soul-graph" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="notifications" element={<LoveDashboardRoute userId={userId || ''} />} />
+          <Route path="dyad/:otherId" element={<LoveDyadSpacePage />} />
+
+          <Route
+            path="my-account"
+            element={<MyAccount userId={userId || ''} onBack={() => window.history.back()} />}
+          />
+
+          <Route
+            path="edit-interests"
+            element={<EditInterests userId={userId || ''} onBack={() => window.history.back()} />}
+          />
 
           <Route path="profile-modal/:profileId" element={null} />
           <Route path="ai-prompts-modal" element={null} />
@@ -238,6 +260,8 @@ function App() {
         
         {/* Friends Dashboard Routes */}
         <Route path="/friends-dashboard" element={<Navigate to="/friends-dashboard/social-overview" replace />} />
+        <Route path="/friends-dashboard/my-account" element={<MyAccount userId={userId || ''} onBack={() => window.history.back()} />} />
+        <Route path="/friends-dashboard/edit-interests" element={<EditInterests userId={userId || ''} onBack={() => window.history.back()} />} />
         <Route path="/friends-dashboard/social-overview" element={<FriendsDashboard userId={userId || ''} onNavigate={(page) => {
           console.log('onNavigate called with:', page);
           if (page === 'landing') window.location.href = '/';
@@ -251,7 +275,7 @@ function App() {
           if (page.startsWith('/community/')) window.location.href = page;
           if (page.startsWith('/fanclub/')) window.location.href = page;
         }} />} />
-        <Route path="/friends-dashboard/friendship-matches" element={<FriendsDashboard userId={userId || ''} onNavigate={(page) => {
+        <Route path="/friends-dashboard/pulse" element={<FriendsDashboard userId={userId || ''} onNavigate={(page) => {
           console.log('onNavigate called with:', page);
           if (page === 'landing') window.location.href = '/';
           if (page === 'registration') window.location.href = '/register/auth';
@@ -264,7 +288,7 @@ function App() {
           if (page.startsWith('/community/')) window.location.href = page;
           if (page.startsWith('/fanclub/')) window.location.href = page;
         }} />} />
-        <Route path="/friends-dashboard/messages" element={<FriendsDashboard userId={userId} onNavigate={(page) => {
+        <Route path="/friends-dashboard/friendship-matches" element={<FriendsDashboard userId={userId || ''} onNavigate={(page) => {
           console.log('onNavigate called with:', page);
           if (page === 'landing') window.location.href = '/';
           if (page === 'registration') window.location.href = '/register/auth';
@@ -470,11 +494,19 @@ function App() {
 }
 
 const LAST_ROUTE_STORAGE_KEY = 'brandbond_last_route_v1';
+const LAST_ROUTE_LOVE_STORAGE_KEY = 'brandbond_last_route_love_v1';
+const LAST_ROUTE_FRIENDS_STORAGE_KEY = 'brandbond_last_route_friends_v1';
 
 function RoutePersistence() {
   const location = useLocation();
   const navigate = useNavigate();
   const [hasRestored, setHasRestored] = useState(false);
+
+  const getUniverseKey = (pathname: string): 'love' | 'friends' | 'other' => {
+    if (pathname.startsWith('/love-dashboard')) return 'love';
+    if (pathname.startsWith('/friends-dashboard')) return 'friends';
+    return 'other';
+  };
 
   const isPublicRoute = (pathname: string) => {
     if (pathname === '/') return true;
@@ -543,13 +575,25 @@ function RoutePersistence() {
     setHasRestored(true);
 
     try {
-      const last = localStorage.getItem(LAST_ROUTE_STORAGE_KEY);
-      if (!last) return;
+      // Never override explicit deep links.
+      // We only restore if user is at root.
+      if (location.pathname !== '/') return;
 
-      // Only auto-redirect if user is at root (fresh reload) to avoid unexpected jumps.
-      if (location.pathname === '/' && last !== '/') {
-        navigate(last, { replace: true });
-      }
+      const last = localStorage.getItem(LAST_ROUTE_STORAGE_KEY);
+      if (!last || last === '/') return;
+
+      // Prefer universe-specific last route if available.
+      const loveLast = localStorage.getItem(LAST_ROUTE_LOVE_STORAGE_KEY);
+      const friendsLast = localStorage.getItem(LAST_ROUTE_FRIENDS_STORAGE_KEY);
+
+      const preferred = (() => {
+        // If the global last was friends, but we have a love last, prefer love.
+        if (last.startsWith('/friends-dashboard') && loveLast && loveLast.startsWith('/love-dashboard')) return loveLast;
+        if (last.startsWith('/love-dashboard') && friendsLast && friendsLast.startsWith('/friends-dashboard')) return friendsLast;
+        return last;
+      })();
+
+      navigate(preferred, { replace: true });
     } catch {
       // ignore
     }
@@ -558,7 +602,12 @@ function RoutePersistence() {
   // Persist on every route change
   useEffect(() => {
     try {
-      localStorage.setItem(LAST_ROUTE_STORAGE_KEY, location.pathname + location.search + location.hash);
+      const full = location.pathname + location.search + location.hash;
+      localStorage.setItem(LAST_ROUTE_STORAGE_KEY, full);
+
+      const uni = getUniverseKey(location.pathname);
+      if (uni === 'love') localStorage.setItem(LAST_ROUTE_LOVE_STORAGE_KEY, full);
+      if (uni === 'friends') localStorage.setItem(LAST_ROUTE_FRIENDS_STORAGE_KEY, full);
     } catch {
       // ignore
     }

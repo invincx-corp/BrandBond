@@ -906,7 +906,11 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onBack, forcedStep,
             <input
               type="date"
               value={data.dob}
-              onChange={(e) => handleInputChange('dob', e.target.value)}
+              onChange={(e) => {
+                const nextDob = e.target.value;
+                handleInputChange('dob', nextDob);
+                handleInputChange('age', nextDob ? calculateAge(nextDob) : 0);
+              }}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
             {errors.dob && <p className="text-red-500 text-sm mt-1">{errors.dob}</p>}

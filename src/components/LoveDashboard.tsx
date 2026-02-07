@@ -1,7 +1,43 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Heart, Users, MessageCircle, Search, Compass, Calendar, Star, Music, Film, Book, MapPin, Utensils, ShoppingBag, Trophy, Plane, Camera, Tv, Palette, Globe, Smartphone, Sparkles, Target, TrendingUp, X, Send, ThumbsUp, Bookmark, Bell, User, ChevronRight, ChevronLeft, DollarSign, ArrowRight, Check, Clock, PawPrint, RefreshCw } from 'lucide-react';
-import ChatSystem from './ChatSystem';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Menu,
+  MessageCircle,
+  RefreshCw,
+  Star,
+  Calendar,
+  Music,
+  Film,
+  Book,
+  MapPin,
+  Compass,
+  Utensils,
+  ShoppingBag,
+  Trophy,
+  Plane,
+  Camera,
+  Tv,
+  Palette,
+  Globe,
+  Smartphone,
+  Sparkles,
+  Search,
+  X,
+  ThumbsUp,
+  Bookmark,
+  Bell,
+  User,
+  Users,
+  DollarSign,
+  ArrowRight,
+  Check,
+  Clock,
+  PawPrint,
+} from 'lucide-react';
 import UserProfileButton from './UserProfileButton';
 import { useLoveOverviewRealtime } from '../hooks/useLoveOverviewRealtime';
 import { useMyMatchesRealtime } from '../hooks/useMyMatchesRealtime';
@@ -11,41 +47,275 @@ import { useMatchRecommendationsRealtime } from '../hooks/useMatchRecommendation
 import { useMyProfileRealtime } from '../hooks/useMyProfileRealtime';
 import { useMyMenuStatsRealtime } from '../hooks/useMyMenuStatsRealtime';
 import { supabase } from '../lib/supabase';
-import { useChat } from '../contexts/ChatContext';
+import NotificationsPanel from './NotificationsPanel';
 import ProgressiveOnboardingOverlay from './ProgressiveOnboardingOverlay';
+import { mapDatePlanStatusToLabel, resolveMatchPercentage } from '../utils/matchPercentage';
+import LovePulsePage from './LovePulsePage';
 
 interface LoveDashboardProps {
   userId: string;
   onNavigate: (page: string) => void;
 }
 
+type LoveProfileCardModel = {
+  id: string;
+  name?: string;
+  age?: number;
+  location?: string;
+  photos?: string[];
+  matchPercentage?: number;
+  commonInterests?: string[];
+  isRevealed?: boolean;
+};
+
+const ProfileSuggestionCard: React.FC<{
+  profile: LoveProfileCardModel;
+  onOpen?: (profile: LoveProfileCardModel) => void;
+  onAction?: (action: 'like' | 'love' | 'bookmark', profile: LoveProfileCardModel) => void;
+  hasAction?: (profileId: string, action: 'like' | 'love' | 'bookmark') => boolean;
+  onReveal?: (profileId: string) => Promise<void>;
+  onPlanDate?: (profile: LoveProfileCardModel) => void;
+}> = ({ profile, onOpen, onAction, hasAction, onReveal, onPlanDate }) => {
+  return (
+    <div
+      className="bg-white rounded-2xl border border-gray-200 hover:shadow-xl transition-all duration-150 cursor-pointer relative overflow-hidden h-[500px] shadow-lg max-w-sm lg:max-w-md xl:max-w-lg"
+      onClick={() => onOpen?.(profile)}
+    >
+      <div className="absolute inset-0 z-0">
+        <div
+          className={`w-full h-full transition-all duration-500 ${profile.isRevealed ? 'blur-none' : 'blur-sm opacity-60'}`}
+        >
+          <img
+            src={profile.photos?.[0] || ''}
+            alt={`${profile.name || 'Profile'}'s profile photo`}
+            className="w-full h-full object-cover rounded-2xl"
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              target.style.display = 'none';
+              const fallback = target.nextElementSibling as HTMLElement;
+              if (fallback) fallback.style.display = 'flex';
+            }}
+          />
+          <div className="w-full h-full bg-gradient-to-br from-blue-200 via-cyan-200 to-blue-100 flex items-center justify-center text-white font-bold text-6xl sm:text-8xl rounded-2xl hidden">
+            👤
+          </div>
+        </div>
+      </div>
+      <div className="absolute inset-0 sm:hidden bg-gradient-to-b from-transparent via-black/5 to-black/20 z-[5] pointer-events-none"></div>
+
+      <div className="relative z-10 h-full flex flex-col p-2.5 sm:p-4">
+        <div className="text-center mb-3 sm:mb-6 mt-4 sm:mt-8">
+          <h3 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 drop-shadow-lg">
+            {profile.name || 'Unknown'}
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 drop-shadow-lg font-medium">
+            {profile.age ?? ''} • {profile.location ?? ''}
+          </p>
+          <div className="inline-flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-300 mb-3 sm:mb-4 shadow-lg">
+            <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-yellow-500" />
+            <span className="font-bold text-xs sm:text-sm">{profile.matchPercentage ?? 0}%</span>
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center mb-3 sm:mb-6">
+          <div className="text-center">
+            <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4 drop-shadow-lg font-semibold">Common Interests</p>
+            <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+              {(profile.commonInterests ?? []).map((interest: string, index: number) => (
+                <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto space-y-3 sm:space-y-4">
+          <div className="flex justify-center flex-wrap gap-x-2.5 sm:gap-x-3 md:gap-x-4 gap-y-1.5 sm:gap-y-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction?.('like', profile);
+              }}
+              className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
+                hasAction?.(profile.id, 'like') ? 'border-blue-600 bg-blue-50' : 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
+              }`}
+            >
+              <ThumbsUp
+                className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${
+                  hasAction?.(profile.id, 'like') ? 'text-blue-700' : 'text-blue-600'
+                }`}
+              />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                (async () => {
+                  try {
+                    onAction?.('love', profile);
+                    if (onReveal) await onReveal(profile.id);
+                    onOpen?.({ ...profile, isRevealed: true });
+                  } catch (err) {
+                    console.error('Failed to love+reveal profile:', err);
+                  }
+                })();
+              }}
+              className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
+                hasAction?.(profile.id, 'love') ? 'border-red-600 bg-red-50' : 'border-red-300 hover:border-red-500 hover:bg-red-50'
+              }`}
+            >
+              <Heart
+                className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${
+                  hasAction?.(profile.id, 'love') ? 'text-red-700' : 'text-red-600'
+                }`}
+              />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction?.('bookmark', profile);
+              }}
+              className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
+                hasAction?.(profile.id, 'bookmark')
+                  ? 'border-purple-600 bg-purple-50'
+                  : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
+              }`}
+            >
+              <Bookmark
+                className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${
+                  hasAction?.(profile.id, 'bookmark') ? 'text-purple-700' : 'text-purple-600'
+                }`}
+              />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlanDate?.(profile);
+              }}
+              className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 border-green-300 hover:border-green-500 hover:bg-green-50 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
+            >
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
+            </button>
+          </div>
+          {!profile.isRevealed && (
+            <div className="text-center">
+              <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">* Click Heart to reveal full profile</p>
+            </div>
+          )}
+        </div>
+        <div className="text-center mt-2">
+          <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">* Click Calendar to plan a date</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
+  const isLoveUniverse = useMemo(() => location.pathname.startsWith('/love-dashboard'), [location.pathname]);
+
+  const switchUniverse = useCallback(
+    (universe: 'love' | 'friends') => {
+      try {
+        localStorage.setItem('brandbond_last_universe_v1', universe);
+      } catch {
+        // ignore
+      }
+
+      if (universe === 'love') {
+        navigate('/love-dashboard/love-overview');
+      } else {
+        navigate('/friends-dashboard/social-overview');
+      }
+    },
+    [navigate]
+  );
+
+  const isNestedFullPageRoute =
+    location.pathname.startsWith('/love-dashboard/my-account') ||
+    location.pathname.startsWith('/love-dashboard/edit-interests');
+
+  const isNestedDyadRoute = location.pathname.includes('/love-dashboard/dyad/');
+
   // Fallback image URLs for when Unsplash images fail to load
   const fallbackImages = [
-    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&h=500&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=500&fit=crop&crop=face",
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=500&fit=crop&crop=face",
+    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&h=500&fit=crop&crop=face",
     "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=500&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&h=500&fit=crop&crop=face",
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=500&fit=crop&crop=face",
     "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=500&h=500&fit=crop&crop=face"
   ];
 
-  const [activeTab, setActiveTab] = useState('overview');
+  type LoveDashboardTabId =
+    | 'overview'
+    | 'pulse'
+    | 'matches'
+    | 'its-a-match'
+    | 'dates'
+    | 'date-requests'
+    | 'my-account'
+    | 'edit-interests';
+
+  const [activeTab, setActiveTab] = useState<LoveDashboardTabId>('overview');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
+  const loveRealtime = useLoveOverviewRealtime(userId);
+  const loveStats = useMemo(() => loveRealtime.stats, [loveRealtime.stats]);
+
+  const unreadNotificationsCount = useMemo(
+    () => loveRealtime.unreadNotificationsCount,
+    [loveRealtime.unreadNotificationsCount]
+  );
+
+  const loveTabs = useMemo(
+    () =>
+      [
+        { id: 'overview', label: 'Love Overview', icon: Heart, route: '/love-dashboard/love-overview' },
+        { id: 'pulse', label: 'Pulse', icon: Activity, route: '/love-dashboard/pulse' },
+        { id: 'matches', label: 'Romantic Matches', icon: Star, route: '/love-dashboard/romantic-matches' },
+        { id: 'its-a-match', label: "It's a Match", icon: Sparkles, route: '/love-dashboard/its-a-match' },
+        { id: 'dates', label: 'Date Planning', icon: Calendar, route: '/love-dashboard/date-planning' },
+        { id: 'date-requests', label: 'Date Requests', icon: Compass, route: '/love-dashboard/date-requests' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, route: '/love-dashboard/notifications', badge: unreadNotificationsCount },
+      ] as Array<{ id: LoveDashboardTabId; label: string; icon: any; route: string; badge?: number }>,
+    [unreadNotificationsCount]
+  );
+
+  const [sidebarOpenMobile, setSidebarOpenMobile] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const goToTab = useCallback(
+    (tab: { id: LoveDashboardTabId; route: string }) => {
+      setActiveTab(tab.id);
+      navigate(tab.route);
+    },
+    [navigate]
+  );
+
   // Sync activeTab with URL path
   useEffect(() => {
     const path = location.pathname;
     if (path.includes('/love-overview')) {
       setActiveTab('overview');
+    } else if (path.includes('/my-account')) {
+      setActiveTab('my-account');
+    } else if (path.includes('/edit-interests')) {
+      setActiveTab('edit-interests');
     } else if (path.includes('/romantic-matches')) {
       setActiveTab('matches');
     } else if (path.includes('/its-a-match')) {
       setActiveTab('its-a-match');
-    } else if (path.includes('/love-messages')) {
-      setActiveTab('messages');
+    } else if (path.includes('/pulse')) {
+      setActiveTab('pulse');
+    } else if (path.includes('/dyad/')) {
+      setActiveTab('pulse');
+    } else if (path.includes('/soul-graph')) {
+      // Soul Graph is now integrated inside Pulse.
+      setActiveTab('pulse');
+      navigate('/love-dashboard/pulse');
     } else if (path.includes('/date-planning')) {
       setActiveTab('dates');
     } else if (path.includes('/date-requests')) {
@@ -61,45 +331,10 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     } else {
       setActiveTab('overview');
     }
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
-  const [myInterestsRow, setMyInterestsRow] = useState<any>(null);
-  useEffect(() => {
-    if (!userId) return;
-    let isMounted = true;
+  void onNavigate;
 
-    const load = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_interests')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (!error && isMounted) setMyInterestsRow(data);
-      } catch {
-        if (isMounted) setMyInterestsRow(null);
-      }
-    };
-
-    load();
-
-    const channel = supabase
-      .channel(`user_interests_${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_interests', filter: `user_id=eq.${userId}` },
-        () => {
-          load();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      isMounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
-  
   // Sync modals with URL path
   useEffect(() => {
     const path = location.pathname;
@@ -107,8 +342,6 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       const profileId = path.split('/profile-modal/')[1];
       setSelectedProfile({ id: profileId });
       setShowProfileModal(true);
-    } else if (path.includes('/ai-prompts-modal')) {
-      setShowAIPromptsModal(true);
     } else if (path.includes('/date-planning-modal/')) {
       const profileId = path.split('/date-planning-modal/')[1];
       setSelectedProfileForDate((prev: any) => (prev?.id === profileId ? prev : { id: profileId }));
@@ -123,9 +356,6 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       setShowSpinResultModal(true);
     }
   }, [location.pathname]);
-
-  const loveRealtime = useLoveOverviewRealtime(userId);
-  const loveStats = useMemo(() => loveRealtime.stats, [loveRealtime.stats]);
 
   const myMatchesRealtime = useMyMatchesRealtime(userId, 50);
   const profileActions = useProfileActionsRealtime(userId);
@@ -183,11 +413,14 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       isActive = false;
     };
   }, [myMatchesRealtime.acceptedMatches, userId]);
+
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+
+  const compatibilityScoreByPairEmpty = useMemo(() => new Map<string, number>(), []);
 
   const likedProfiles = useMemo(() => {
     return profileActions.liked.map((a) => ({
@@ -196,14 +429,19 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       age: a.target_profile?.age ?? 0,
       location: a.target_profile?.location ?? '',
       photos: [a.target_profile?.photo_url || fallbackImages[0]],
-      matchPercentage: 0,
+      matchPercentage: resolveMatchPercentage({
+        myMatches: myMatchesRealtime.matches as any,
+        userId,
+        otherUserId: String(a.target_user_id),
+        compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+      }),
       commonInterests: [],
       allTimeFavorites: {},
       bio: '',
       actionTimestamp: a.created_at,
       _raw: a,
     }));
-  }, [profileActions.liked, fallbackImages]);
+  }, [profileActions.liked, fallbackImages, myMatchesRealtime.matches, userId]);
 
   const lovedProfiles = useMemo(() => {
     return profileActions.loved.map((a) => ({
@@ -212,7 +450,12 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       age: a.target_profile?.age ?? 0,
       location: a.target_profile?.location ?? '',
       photos: [a.target_profile?.photo_url || fallbackImages[1]],
-      matchPercentage: 0,
+      matchPercentage: resolveMatchPercentage({
+        myMatches: myMatchesRealtime.matches as any,
+        userId,
+        otherUserId: String(a.target_user_id),
+        compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+      }),
       commonInterests: [],
       allTimeFavorites: {},
       bio: '',
@@ -220,7 +463,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       actionTimestamp: a.created_at,
       _raw: a,
     }));
-  }, [profileActions.loved, fallbackImages]);
+  }, [profileActions.loved, fallbackImages, myMatchesRealtime.matches, userId]);
 
   const bookmarkedProfiles = useMemo(() => {
     return profileActions.bookmarked.map((a) => ({
@@ -229,14 +472,19 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       age: a.target_profile?.age ?? 0,
       location: a.target_profile?.location ?? '',
       photos: [a.target_profile?.photo_url || fallbackImages[2]],
-      matchPercentage: 0,
+      matchPercentage: resolveMatchPercentage({
+        myMatches: myMatchesRealtime.matches as any,
+        userId,
+        otherUserId: String(a.target_user_id),
+        compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+      }),
       commonInterests: [],
       allTimeFavorites: {},
       bio: '',
       actionTimestamp: a.created_at,
       _raw: a,
     }));
-  }, [profileActions.bookmarked, fallbackImages]);
+  }, [profileActions.bookmarked, fallbackImages, myMatchesRealtime.matches, userId]);
 
   const resolveProfileById = useCallback((profileId: string) => {
     const inLoved = lovedProfiles.find((p) => p.id === profileId);
@@ -256,7 +504,12 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         age: inMatches.other_profile.age ?? 0,
         location: inMatches.other_profile.location ?? '',
         photos: inMatches.other_profile.photo_url ? [inMatches.other_profile.photo_url] : fallbackImages,
-        matchPercentage: Math.round(((inMatches.metadata?.match_percentage ?? 0) as number) * 100),
+        matchPercentage: resolveMatchPercentage({
+          myMatches: myMatchesRealtime.matches as any,
+          userId,
+          otherUserId: String(inMatches.other_user_id),
+          compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+        }),
         commonInterests: Array.isArray(inMatches.metadata?.common_interests) ? inMatches.metadata.common_interests : [],
         allTimeFavorites: {},
         bio: typeof inMatches.metadata?.bio === 'string' ? inMatches.metadata.bio : '',
@@ -289,13 +542,20 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
 
     let isActive = true;
     const channel = supabase.channel(`date_plans:${userId}`);
+    let pollTimer: any = null;
+
+    const low = (a: string, b: string) => (a < b ? a : b);
+    const high = (a: string, b: string) => (a < b ? b : a);
 
     const loadPlans = async () => {
       try {
+        console.debug('[date_plans] loadPlans() start', { userId });
         const { data: plans, error: plansErr } = await supabase
           .from('date_plans')
           .select('id, creator_id, partner_id, type, plan_date, plan_time, location, activity, budget, description, special_notes, status, created_at')
-          .or(`creator_id.eq.${userId},partner_id.eq.${userId}`)
+          // Sender should see their outgoing requests immediately.
+          // Receiver should only see a card once they accept.
+          .or(`creator_id.eq.${userId},and(partner_id.eq.${userId},status.eq.accepted)`)
           .order('created_at', { ascending: false })
           .limit(50);
 
@@ -309,6 +569,27 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
               .filter(Boolean)
           )
         );
+
+        const compatibilityByPair = new Map<string, number>();
+
+        if (otherIds.length) {
+          const pairs = otherIds.map((other) => ({ user_low: low(userId, other), user_high: high(userId, other) }));
+          const compatRes = await supabase
+            .from('user_compatibility')
+            .select('score, user_low, user_high')
+            .in('user_low', pairs.map((p) => p.user_low))
+            .in('user_high', pairs.map((p) => p.user_high));
+
+          if (compatRes.error) throw compatRes.error;
+
+          (compatRes.data || []).forEach((row: any) => {
+            const uLow = String(row.user_low);
+            const uHigh = String(row.user_high);
+            if (!uLow || !uHigh) return;
+            const key = uLow < uHigh ? `${uLow}|${uHigh}` : `${uHigh}|${uLow}`;
+            compatibilityByPair.set(key, Number(row.score) || 0);
+          });
+        }
 
         const [profilesRes, photosRes] = await Promise.all([
           otherIds.length
@@ -334,6 +615,32 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           const otherId = p.creator_id === userId ? p.partner_id : p.creator_id;
           const other = profileById.get(otherId);
 
+          const matchRow = (myMatchesRealtime.matches || []).find((m: any) => String(m?.other_user_id) === String(otherId)) || null;
+          const pairKey = (() => {
+            const a = String(userId);
+            const b = String(otherId);
+            return a < b ? `${a}|${b}` : `${b}|${a}`;
+          })();
+          const compatScore = compatibilityByPair.get(pairKey);
+
+          const matchPct = resolveMatchPercentage({
+            myMatches: myMatchesRealtime.matches as any,
+            userId,
+            otherUserId: String(otherId),
+            compatibilityScoreByPair: compatibilityByPair,
+          });
+
+          console.debug('[date_plans] match% resolve', {
+            userId,
+            otherId,
+            hasMatchRow: Boolean(matchRow),
+            matchRowOtherUserId: matchRow?.other_user_id,
+            matchRowMeta: matchRow?.metadata,
+            pairKey,
+            compatScore,
+            matchPct,
+          });
+
           return {
             id: p.id,
             fromProfile: {
@@ -350,7 +657,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   return main?.photo_url || fallbackImages[0];
                 })(),
               ],
-              matchPercentage: 0,
+              matchPercentage: matchPct,
               commonInterests: [],
               allTimeFavorites: {},
               bio: ''
@@ -377,6 +684,10 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
 
     loadPlans();
 
+    pollTimer = setInterval(() => {
+      loadPlans();
+    }, 5000);
+
     channel
       .on(
         'postgres_changes',
@@ -386,7 +697,8 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           table: 'date_plans',
           filter: `creator_id=eq.${userId}`,
         },
-        () => {
+        (payload: any) => {
+          console.debug('[date_plans] realtime (creator_id) payload', payload);
           loadPlans();
         }
       )
@@ -398,17 +710,21 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           table: 'date_plans',
           filter: `partner_id=eq.${userId}`,
         },
-        () => {
+        (payload: any) => {
+          console.debug('[date_plans] realtime (partner_id) payload', payload);
           loadPlans();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.debug('[date_plans] channel subscribe status', status, { userId });
+      });
 
     return () => {
       isActive = false;
+      if (pollTimer) clearInterval(pollTimer);
       supabase.removeChannel(channel);
     };
-  }, [fallbackImages, userId]);
+  }, [fallbackImages, myMatchesRealtime.matches, userId]);
 
   useEffect(() => {
     if (!showDatePlanningModal || !selectedProfileForDate?.id) return;
@@ -422,29 +738,8 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
   }, [resolveProfileById, selectedProfileForDate, showDatePlanningModal]);
 
   const romanticInterests = useMemo(() => profileActions.totalCount, [profileActions.totalCount]);
-  
-  // AI Chat Prompts and Chat functionality state
-  const [showAIPromptsModal, setShowAIPromptsModal] = useState(false);
-  const [selectedProfileForChat, setSelectedProfileForChat] = useState<any>(null);
-  const [aiPrompts, setAiPrompts] = useState<string[]>([]);
 
-  const {
-    conversations: chatConversations,
-    setActiveConversation,
-    sendMessage: chatSendMessage,
-    markAsRead: chatMarkAsRead,
-    deleteConversation: chatDeleteConversation,
-    blockUser: chatBlockUser,
-    reportUser: chatReportUser,
-    startVideoCall: chatStartVideoCall,
-    startVoiceCall: chatStartVoiceCall,
-    shareLocation: chatShareLocation,
-    sendAIEnhancedMessage: chatSendAIEnhancedMessage,
-    refreshConversations: chatRefreshConversations,
-    sendDateInvite: chatSendDateInvite,
-  } = useChat();
-
-  const isMessagingInitialized = Boolean(userId) && Array.isArray(chatConversations);
+  void userId;
 
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
@@ -458,11 +753,16 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         if (other) {
           profile = {
             id: matchRow.other_user_id,
-            name: other?.full_name ?? 'Unknown',
-            age: other?.age ?? 0,
-            location: other?.location ?? '',
+            name: other?.full_name || 'Unknown',
+            age: other?.age || 0,
+            location: other?.location || '',
             photos: other?.photo_url ? [other.photo_url] : fallbackImages,
-            matchPercentage: Math.round(((matchRow?.metadata?.match_percentage ?? 0) as number) * 100),
+            matchPercentage: resolveMatchPercentage({
+              myMatches: myMatchesRealtime.matches as any,
+              userId,
+              otherUserId: String(matchRow.other_user_id),
+              compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+            }),
             commonInterests: Array.isArray(matchRow?.metadata?.common_interests) ? matchRow.metadata.common_interests : [],
             allTimeFavorites: {},
             bio: typeof matchRow?.metadata?.bio === 'string' ? matchRow.metadata.bio : '',
@@ -473,21 +773,21 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       }
 
       return {
-      id: n.id,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      timestamp: n.created_at,
-      isRead: n.is_read,
-      action:
-        n.entity_type === 'match'
-          ? 'view_match'
-          : n.entity_type === 'date_request'
-            ? 'view_date_requests'
-            : 'view_insights',
-      profile,
-      entityType: n.entity_type,
-      entityId: n.entity_id,
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        timestamp: n.created_at,
+        isRead: n.is_read,
+        action:
+          n.entity_type === 'match'
+            ? 'view_match'
+            : n.entity_type === 'date_request'
+              ? 'view_date_requests'
+              : 'view_insights',
+        profile,
+        entityType: n.entity_type,
+        entityId: n.entity_id,
       };
     });
   }, [fallbackImages, loveRealtime.notifications, myMatchesRealtime.matches]);
@@ -496,32 +796,32 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     return loveRealtime.incomingDateRequests
       .filter((r) => String(r.from_user_id) !== String(userId))
       .map((r) => ({
-      id: r.id,
-      fromProfile: {
-        id: r.from_user_id,
-        name: r.from_profile?.full_name || 'Unknown',
-        age: r.from_profile?.age || 0,
-        location: r.from_profile?.location || '',
-        photos: [r.from_main_photo_url || fallbackImages[0]],
-        matchPercentage: typeof (r as any).match_percentage === 'number' ? (r as any).match_percentage : 0,
-        commonInterests: Array.isArray((r as any).common_interests) ? (r as any).common_interests : [],
-        allTimeFavorites: {},
-        bio: ''
-      },
-      requestType: r.request_type,
-      message: r.message,
-      proposedDate: r.proposed_at
-        ? new Date(r.proposed_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-        : 'Not specified',
-      proposedTime: r.proposed_at
-        ? new Date(r.proposed_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-        : 'Not specified',
-      proposedLocation: r.proposed_location,
-      status: r.status,
-      timestamp: r.created_at,
-      isRead: r.is_read_by_receiver,
-      _raw: r,
-    }));
+        id: r.id,
+        fromProfile: {
+          id: r.from_user_id,
+          name: r.from_profile?.full_name || 'Unknown',
+          age: r.from_profile?.age || 0,
+          location: r.from_profile?.location || '',
+          photos: [r.from_main_photo_url || fallbackImages[0]],
+          matchPercentage: typeof (r as any).match_percentage === 'number' ? (r as any).match_percentage : 0,
+          commonInterests: Array.isArray((r as any).common_interests) ? (r as any).common_interests : [],
+          allTimeFavorites: {},
+          bio: ''
+        },
+        requestType: r.request_type,
+        message: r.message,
+        proposedDate: r.proposed_at
+          ? new Date(r.proposed_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : 'Not specified',
+        proposedTime: r.proposed_at
+          ? new Date(r.proposed_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+          : 'Not specified',
+        proposedLocation: r.proposed_location,
+        status: r.status,
+        timestamp: r.created_at,
+        isRead: r.is_read_by_receiver,
+        _raw: r,
+      }));
   }, [loveRealtime.incomingDateRequests, userId]);
 
   // Function to generate poetic bio from all-time favorites
@@ -529,13 +829,13 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     if (!interests || interests.length === 0) {
       return "A mysterious soul with hidden depths, waiting to share their story with the right person.";
     }
-    
+
     const music = interests[0] || "melodies";
     const food = interests[1] || "culinary delights";
     const hobby = interests[2] || "creative pursuits";
     const entertainment = interests[3] || "entertainment";
     const reading = interests[4] || "literary worlds";
-    
+
     return `Meet a soul who finds rhythm in ${music}, savors the magic of ${food}, and loses themselves in ${hobby}. When not exploring ${entertainment}, they dive into ${reading} for inspiration. This is someone who believes life is meant to be lived with passion, curiosity, and an open heart - always ready to discover new adventures and create meaningful connections.`;
   };
 
@@ -568,11 +868,11 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       setCurrentImageIndex(0);
       setImageLoading(true);
       setImageError(false);
-      
+
       // Preload the first image with performance optimization
       if (selectedProfile.photos.length > 0) {
         const img = new Image();
-        
+
         // Add loading timeout for better UX
         const loadingTimeout = setTimeout(() => {
           if (img.complete === false) {
@@ -580,7 +880,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
             setImageError(true);
           }
         }, 5000); // 5 second timeout
-        
+
         img.onload = () => {
           clearTimeout(loadingTimeout);
           setImageLoading(false);
@@ -591,7 +891,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           setImageLoading(false);
           setImageError(true);
         };
-        
+
         // Set crossOrigin for better performance
         img.crossOrigin = 'anonymous';
         img.src = selectedProfile.photos[0];
@@ -599,32 +899,11 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     }
   }, [selectedProfile]);
 
-  const unreadNotificationsCount = useMemo(
-    () => loveRealtime.unreadNotificationsCount,
-    [loveRealtime.unreadNotificationsCount]
-  );
-
   const conversations = useMemo(() => {
-    return (chatConversations || []).map((c: any) => ({
-      conversation: {
-        id: c.conversation.id,
-        participantIds: c.conversation.participantIds,
-        lastMessage: c.conversation.lastMessage,
-        unreadCount: c.conversation.unreadCount,
-        isTyping: c.conversation.isTyping,
-        isPinned: c.conversation.isPinned,
-        isMuted: c.conversation.isMuted,
-        createdAt: c.conversation.createdAt,
-        updatedAt: c.conversation.updatedAt,
-      },
-      otherProfile: c.otherProfile,
-      messages: c.messages,
-    }));
-  }, [chatConversations]);
+    return [] as any[];
+  }, []);
 
-  const unreadMessagesCount = useMemo(() => {
-    return (conversations || []).reduce((sum: number, c: any) => sum + (c?.conversation?.unreadCount || 0), 0);
-  }, [conversations]);
+  void conversations;
 
   // Love Challenge state and logic (Supabase-backed)
   const [dailyChallenge, setDailyChallenge] = useState({
@@ -741,7 +1020,9 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
               loadDailyChallenge().catch(() => undefined);
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.debug('[daily_challenge_progress] channel subscribe status', status, { userId });
+          });
 
         if (isMounted) dailyChallengeChannelRef.current = channel;
       } catch {
@@ -825,7 +1106,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
   const handleNotificationAction = useCallback((notification: any) => {
     // Mark as read first
     markNotificationAsRead(notification.id);
-    
+
     // Handle different notification actions
     switch (notification.action) {
       case 'view_profile':
@@ -839,10 +1120,6 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         setActiveTab('date-requests');
         break;
       case 'open_chat':
-        if (notification.profile) {
-          setActiveChat(notification.profile);
-          setActiveTab('messages');
-        }
         break;
       case 'view_date_details':
         setActiveTab('dates');
@@ -877,227 +1154,35 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         break;
       }
     }
-    
+
     // Close notifications modal
     setShowNotificationsModal(false);
-  }, [markNotificationAsRead, notifications, mutualMatches, navigate]);
+  }, [markNotificationAsRead, navigate, mutualMatches]);
 
   const formatTimestamp = useCallback((timestamp: string) => {
     const now = new Date();
     const notificationTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now.getTime() - notificationTime.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
+
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    
+
     return notificationTime.toLocaleDateString();
   }, []);
 
   // Love Challenge functions (Supabase-backed)
 
-  // Messaging Service Functions
-  const handleSendMessage = useCallback(async (conversationId: string, message: any) => {
-    try {
-      if (!message?.text) return;
-      console.log('[LoveDashboard] handleSendMessage', {
-        conversationId,
-        userId,
-        text: message.text,
-      });
-      // IMPORTANT: ChatContext.sendMessage() uses ChatContext.activeConversation.
-      // We must set the *ChatContext* conversation object, not the mapped UI conversation.
-      const ctxConv = (chatConversations || []).find((c: any) => c.conversation?.id === conversationId) || null;
-      console.log('[LoveDashboard] resolved ctxConv', {
-        found: Boolean(ctxConv),
-        ctxConversationId: ctxConv?.conversation?.id,
-        ctxOtherUserId: ctxConv?.otherProfile?.id,
-      });
-      if (ctxConv) setActiveConversation(ctxConv);
-      console.log('[LoveDashboard] chatSendMessage ref', {
-        type: typeof chatSendMessage,
-        name: (chatSendMessage as any)?.name,
-      });
-      await chatSendMessage(message.text);
-      console.log('[LoveDashboard] chatSendMessage completed');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  }, [chatConversations, chatSendMessage, setActiveConversation]);
+  // Chat is intentionally hidden in dyad mode (Option A).
 
-  const handleMarkAsRead = useCallback(async (conversationId: string) => {
-    try {
-      await chatMarkAsRead(conversationId);
-    } catch (error) {
-      console.error('Error marking messages read:', error);
-    }
-  }, [chatMarkAsRead]);
-
-  const startChatCandidates = useMemo(() => {
-    const accepted = myMatchesRealtime.acceptedMatches || [];
-    return accepted
-      .map((m: any) => {
-        const other = m.other_profile;
-        return {
-          id: m.other_user_id,
-          name: other?.full_name || other?.name || 'Unknown',
-          age: typeof other?.age === 'number' ? other.age : undefined,
-          location: other?.location || '',
-          photo_url: other?.photo_url || (Array.isArray(other?.photos) ? other.photos[0] : undefined),
-        };
-      })
-      .filter((c: any) => Boolean(c.id));
-  }, [myMatchesRealtime.acceptedMatches]);
-
-  const handleStartNewChat = useCallback(
-    async (otherUserId: string) => {
-      try {
-        if (!otherUserId) return;
-
-        const { error: convErr } = await supabase
-          .rpc('get_or_create_conversation', { p_other_user: otherUserId, p_universe: 'both' });
-        if (convErr) throw convErr;
-
-        await chatRefreshConversations();
-        const updated = (chatConversations || []).find((c: any) => c.otherProfile?.id === otherUserId) || null;
-        if (updated) setActiveConversation(updated);
-      } catch (error) {
-        console.error('Error starting new chat:', error);
-      }
-    },
-    [chatConversations, chatRefreshConversations, setActiveConversation]
-  );
-
-  const handleDeleteConversation = useCallback(async (conversationId: string) => {
-    try {
-      await chatDeleteConversation(conversationId);
-    } catch (error) {
-      console.error('Failed to delete conversation:', error);
-    }
-  }, [chatDeleteConversation]);
-
-  const handleBlockUser = useCallback(async (conversationId: string) => {
-    try {
-      await chatBlockUser(conversationId);
-    } catch (error) {
-      console.error('Failed to block user:', error);
-    }
-  }, [chatBlockUser]);
-
-  const handleReportUser = useCallback(async (conversationId: string) => {
-    try {
-      await chatReportUser(conversationId, 'Inappropriate behavior');
-    } catch (error) {
-      console.error('Failed to report user:', error);
-    }
-  }, [chatReportUser]);
-
-  const handleStartVideoCall = useCallback(async (conversationId: string) => {
-    try {
-      await chatStartVideoCall(conversationId);
-    } catch (error) {
-      console.error('Failed to start video call:', error);
-    }
-  }, [chatStartVideoCall]);
-
-  const handleStartVoiceCall = useCallback(async (conversationId: string) => {
-    try {
-      await chatStartVoiceCall(conversationId);
-    } catch (error) {
-      console.error('Failed to start voice call:', error);
-    }
-  }, [chatStartVoiceCall]);
-
-  const handleShareLocation = useCallback(async (conversationId: string) => {
-    try {
-      const location = { name: 'Current Location', lat: 0, lng: 0 };
-      const conv = conversations.find((c: any) => c.conversation.id === conversationId);
-      if (conv) setActiveConversation(conv);
-      await chatShareLocation(location);
-    } catch (error) {
-      console.error('Failed to share location:', error);
-    }
-  }, [chatShareLocation, conversations, setActiveConversation]);
-
-  const handleSendDateInvite = useCallback(async (conversationId: string, dateDetails: any) => {
-    try {
-      const conv = conversations.find((c) => c.conversation.id === conversationId);
-      if (conv) setActiveConversation(conv);
-      await chatSendDateInvite(dateDetails);
-    } catch (error) {
-      console.error('Failed to send date invite:', error);
-    }
-  }, [chatSendDateInvite, conversations, setActiveConversation]);
-
-  const handleSendAIEnhancedMessage = useCallback(async (conversationId: string, prompt: string) => {
-    try {
-      const conv = conversations.find((c: any) => c.conversation.id === conversationId);
-      if (conv) setActiveConversation(conv);
-      await chatSendAIEnhancedMessage(prompt);
-    } catch (error) {
-      console.error('Failed to send AI enhanced message:', error);
-    }
-  }, [chatSendAIEnhancedMessage, conversations, setActiveConversation]);
-
-  const updateChallengeProgress = useCallback(async (_messageData: any) => {
-    try {
-      if (!dailyChallenge.id) return;
-
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      const authedUserId = authData.user?.id;
-      if (!authedUserId) return;
-
-      const toProfile = _messageData?.toProfile;
-      if (!toProfile?.id) return;
-
-      const existing = dailyChallenge.progress.some((p) => String(p.profileId) === String(toProfile.id));
-      if (existing) return;
-
-      const newItem = {
-        profileId: String(toProfile.id),
-        profileName: String(toProfile.name ?? 'Someone'),
-        message: String(_messageData?.message ?? ''),
-        timestamp: new Date().toISOString(),
-        type: 'first_message',
-      };
-
-      const nextCompleted = dailyChallenge.completed + 1;
-      const nextTarget = dailyChallenge.target || 3;
-
-      const nextProgress = {
-        target: nextTarget,
-        completed: nextCompleted,
-        items: [...dailyChallenge.progress, newItem],
-      };
-
-      const { error: upsertErr } = await supabase
-        .from('user_daily_challenge_progress')
-        .upsert(
-          {
-            user_id: authedUserId,
-            challenge_id: dailyChallenge.id,
-            progress: nextProgress,
-            is_completed: nextCompleted >= nextTarget,
-          },
-          { onConflict: 'user_id,challenge_id' }
-        );
-
-      if (upsertErr) throw upsertErr;
-    } catch (e) {
-      console.error('Failed to update challenge progress:', e);
-    }
-  }, [dailyChallenge.completed, dailyChallenge.id, dailyChallenge.progress, dailyChallenge.target]);
-
-  const handleTakeChallenge = useCallback(() => {
-    setShowChallengeModal(true);
-    navigate('/love-dashboard/challenge-modal');
-  }, [navigate]);
+  const handleStartNewChat = useCallback(async (_otherUserId: string) => {
+    return;
+  }, []);
 
   const closeMatchPopup = useCallback(() => {
     setShowMatchPopup(false);
@@ -1112,24 +1197,44 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     }
   };
 
-  const startChatWithMatch = () => {
-    if (currentMatch?.profile?.id) {
-      const otherUserId = String(currentMatch.profile.id);
-      handleStartNewChat(otherUserId)
-        .then(() => {
-          setActiveTab('messages');
-          navigate('/love-dashboard/love-messages');
-        })
-        .catch((e) => {
-          console.error('Failed to start chat with match:', e);
-          setActiveTab('messages');
-          navigate('/love-dashboard/love-messages');
-        })
-        .finally(() => {
-          closeMatchPopup();
-        });
+  const openDyadWithMatch = useCallback(async () => {
+    if (!currentMatch?.id) return;
+    try {
+      await supabase.rpc('activate_love_dyad', { p_match_id: String(currentMatch.id) });
+    } catch (e) {
+      const msg = String((e as any)?.message || 'Failed to open dyad');
+      if (msg.includes('romantic_exclusivity_violation')) {
+        window.alert('You can only have one active love dyad at a time. End the current one before opening a new one.');
+      } else {
+        window.alert(msg);
+      }
+      return;
     }
-  };
+
+    closeMatchPopup();
+    setActiveTab('pulse');
+    navigate(`/love-dashboard/dyad/${String(currentMatch.id)}`);
+  }, [closeMatchPopup, currentMatch, navigate]);
+
+  const openDyadForMatchId = useCallback(
+    async (matchId: string) => {
+      if (!matchId) return;
+      try {
+        await supabase.rpc('activate_love_dyad', { p_match_id: String(matchId) });
+      } catch (e) {
+        const msg = String((e as any)?.message || 'Failed to open dyad');
+        if (msg.includes('romantic_exclusivity_violation')) {
+          window.alert('You can only have one active love dyad at a time. End the current one before opening a new one.');
+        } else {
+          window.alert(msg);
+        }
+        return;
+      }
+      setActiveTab('pulse');
+      navigate(`/love-dashboard/dyad/${String(matchId)}`);
+    },
+    [navigate]
+  );
 
   const planDateWithMatch = () => {
     if (currentMatch) {
@@ -1140,25 +1245,9 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
 
   const prevAcceptedMatchIdsRef = useRef<Set<string>>(new Set());
 
-  const romanticMatches = useMemo(() => {
-    return (myMatchesRealtime.matches || []).map((m) => {
-      const other = m.other_profile;
-      const pct = Math.round(((typeof m.metadata?.match_percentage === 'number' ? m.metadata.match_percentage : 0) as number) * 100);
+  const persistedCompatibilityRef = useRef<Map<string, number>>(new Map());
 
-      return {
-        id: m.match_id,
-        name: other?.full_name ?? 'Unknown',
-        age: other?.age ?? undefined,
-        location: other?.location ?? 'Unknown',
-        matchPercentage: pct,
-        commonInterests: Array.isArray(m.metadata?.common_interests) ? m.metadata.common_interests : [],
-        photos: other?.photo_url ? [other.photo_url] : [],
-        isRevealed: true,
-        bio: typeof m.metadata?.bio === 'string' ? m.metadata.bio : '',
-        _raw: m,
-      };
-    });
-  }, [myMatchesRealtime.matches]);
+  void persistedCompatibilityRef;
 
   // Profile actions are Supabase-backed via useProfileActionsRealtime
   const handleProfileAction = useCallback(
@@ -1167,7 +1256,9 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         if (!profile?.id) return;
         await profileActions.toggleAction(String(profile.id), action);
       } catch (e) {
+        const msg = String((e as any)?.message || 'Failed to update');
         console.error('Failed to toggle profile action:', e);
+        window.alert(msg);
       }
     },
     [profileActions]
@@ -1180,14 +1271,51 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         const p = r.recommended_profile;
         if (!p?.id) return null;
         const revealed = profileReveals.revealedTargetIds.has(String(p.id));
+
+        const matchedKeywordsByCategory = r.reasons?.matched_keywords_by_category;
+        const matchedKeywordChips = (() => {
+          if (!matchedKeywordsByCategory || typeof matchedKeywordsByCategory !== 'object') return [] as string[];
+          const chips: string[] = [];
+          for (const v of Object.values(matchedKeywordsByCategory as any)) {
+            const mine = Array.isArray((v as any)?.mine) ? (v as any).mine : [];
+            const theirs = Array.isArray((v as any)?.theirs) ? (v as any).theirs : [];
+            // Prefer showing "my" matched tokens; fall back to theirs if missing
+            for (const x of (mine.length ? mine : theirs)) {
+              if (typeof x === 'string' && x.trim()) chips.push(x.trim());
+            }
+          }
+          // de-dupe (case-insensitive) and cap for UI
+          const seen = new Set<string>();
+          const out: string[] = [];
+          for (const c of chips) {
+            const k = c.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(c);
+            if (out.length >= 10) break;
+          }
+          return out;
+        })();
+
         return {
           id: p.id,
           name: p.full_name ?? 'Unknown',
           age: p.age ?? 0,
           location: p.location ?? '',
           photos: [p.photo_url || fallbackImages[0]],
-          matchPercentage: typeof r.score === 'number' ? r.score : 0,
-          commonInterests: Array.isArray(r.reasons?.common_interests) ? r.reasons.common_interests : [],
+          matchPercentage: (() => {
+            const resolved = resolveMatchPercentage({
+              myMatches: myMatchesRealtime.matches as any,
+              userId,
+              otherUserId: String(p.id),
+              compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+            });
+            if (resolved > 0) return resolved;
+            return typeof r.score === 'number' ? Math.round(r.score) : 0;
+          })(),
+          commonInterests: matchedKeywordChips.length
+            ? matchedKeywordChips
+            : (Array.isArray(r.reasons?.common_interests) ? r.reasons.common_interests : []),
           allTimeFavorites: r.reasons?.all_time_favorites || {},
           bio: typeof r.reasons?.bio === 'string' ? r.reasons.bio : '',
           isRevealed: revealed,
@@ -1196,23 +1324,69 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       })
       .filter(Boolean);
 
-    return mapped.length ? mapped : romanticMatches;
-  }, [fallbackImages, recommendationsRealtime.recommendations, romanticMatches, profileReveals.revealedTargetIds]);
+    return mapped;
+  }, [compatibilityScoreByPairEmpty, fallbackImages, myMatchesRealtime.matches, recommendationsRealtime.recommendations, profileReveals.revealedTargetIds, userId]);
 
-  const topPickProfiles = useMemo(
-    () => (recommendedProfiles || []).filter((p: any) => Number(p?.matchPercentage || 0) >= 70),
-    [recommendedProfiles]
-  );
+  useEffect(() => {
+    if (!userId) return;
+    const recs = recommendationsRealtime.recommendations || [];
+    if (!recs.length) return;
 
-  const exploreProfiles = useMemo(
-    () => (recommendedProfiles || []).filter((p: any) => Number(p?.matchPercentage || 0) < 70),
-    [recommendedProfiles]
-  );
+    const low = (a: string, b: string) => (a < b ? a : b);
+    const high = (a: string, b: string) => (a < b ? b : a);
+
+    const rows = recs
+      .map((r: any) => {
+        const p = r?.recommended_profile;
+        if (!p?.id) return null;
+        const score = typeof r.score === 'number' ? Math.round(r.score) : null;
+        if (score === null || !Number.isFinite(score) || score <= 0) return null;
+        const uLow = low(String(userId), String(p.id));
+        const uHigh = high(String(userId), String(p.id));
+        const key = `${uLow}|${uHigh}`;
+        const prev = persistedCompatibilityRef.current.get(key);
+        if (prev === score) return null;
+        return {
+          key,
+          user_low: uLow,
+          user_high: uHigh,
+          score,
+          updated_at: new Date().toISOString(),
+        };
+      })
+      .filter(Boolean) as any[];
+
+    if (!rows.length) return;
+
+    (async () => {
+      try {
+        for (const r of rows) {
+          const otherUserId = r.user_low === userId ? r.user_high : r.user_low;
+          const { error } = await supabase.rpc('persist_user_compatibility', {
+            other_user_id: otherUserId,
+            score: r.score,
+          });
+          if (error) throw error;
+        }
+        rows.forEach((r) => persistedCompatibilityRef.current.set(r.key, r.score));
+        console.debug('[user_compatibility] persisted recommendation scores (rpc)', {
+          count: rows.length,
+        });
+      } catch (e) {
+        console.error('[user_compatibility] failed to persist recommendation scores (rpc)', e);
+      }
+    })();
+  }, [recommendationsRealtime.recommendations, userId]);
 
   useEffect(() => {
     const accepted = (myMatchesRealtime.acceptedMatches || []).map((m) => {
       const other = m.other_profile;
-      const pct = Math.round(((typeof m.metadata?.match_percentage === 'number' ? m.metadata.match_percentage : 0) as number) * 100);
+      const pct = resolveMatchPercentage({
+        myMatches: myMatchesRealtime.matches as any,
+        userId,
+        otherUserId: String(m.other_user_id),
+        compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+      });
 
       return {
         id: m.match_id,
@@ -1254,7 +1428,12 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     const popupMatch = {
       id: newest.match_id,
       name,
-      matchPercentage: Math.round(((typeof newest.metadata?.match_percentage === 'number' ? newest.metadata.match_percentage : 0) as number) * 100),
+      matchPercentage: resolveMatchPercentage({
+        myMatches: myMatchesRealtime.matches as any,
+        userId,
+        otherUserId: String(newest.other_user_id),
+        compatibilityScoreByPair: compatibilityScoreByPairEmpty,
+      }),
       profile: {
         id: newest.other_user_id,
         name,
@@ -1271,7 +1450,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
 
   // Prevent background scroll when modals are open
   useEffect(() => {
-    const isAnyModalOpen = showProfileModal || showDatePlanningModal || showAIPromptsModal || 
+    const isAnyModalOpen = showProfileModal || showDatePlanningModal || 
                           showNotificationsModal || showChallengeModal || showMatchPopup || 
                           showSpinwheelModal || showSpinResultModal;
 
@@ -1302,7 +1481,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
       document.body.style.right = 'unset';
       document.body.style.width = 'unset';
     };
-  }, [showProfileModal, showDatePlanningModal, showAIPromptsModal, showNotificationsModal, 
+  }, [showProfileModal, showDatePlanningModal, showNotificationsModal, 
       showChallengeModal, showMatchPopup, showSpinwheelModal, showSpinResultModal]);
 
   // Function to check if a profile has a specific action - Memoized for performance
@@ -1321,18 +1500,6 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
   }, [profileActions.bookmarked, profileActions.liked, profileActions.loved]);
 
   // Function to get action count - Memoized for performance
-  const getActionCount = useCallback((action: 'like' | 'love' | 'bookmark') => {
-    switch (action) {
-      case 'like':
-        return profileActions.likeCount;
-      case 'love':
-        return profileActions.loveCount;
-      case 'bookmark':
-        return profileActions.bookmarkCount;
-      default:
-        return 0;
-    }
-  }, [profileActions.bookmarkCount, profileActions.likeCount, profileActions.loveCount]);
 
   // Function to handle date request actions - Optimized with useCallback for performance
   const handleDateRequest = useCallback(async (requestId: string, action: 'accept' | 'decline') => {
@@ -1366,7 +1533,9 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     try {
       await profileActions.toggleAction(String(profileId), 'love');
     } catch (e) {
+      const msg = String((e as any)?.message || 'Failed to update');
       console.error('Failed to remove loved profile:', e);
+      window.alert(msg);
     }
   }, [profileActions]);
 
@@ -1379,104 +1548,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     }
   }, [profileActions]);
 
-  // Function to generate emotionally intelligent, human, and connecting AI chat prompts
-  const generateAIPrompts = (profile: any) => {
-    const commonInterests = profile.commonInterests || [];
-    const prompts = [];
-    
-    // Music & Emotional Connection
-    if (commonInterests.includes('Taylor Swift')) {
-      prompts.push("I feel like we might have similar souls since we both connect with Taylor's music. Her lyrics always seem to capture exactly what I'm feeling. Which song resonates with you the most right now? 🎵💫");
-    }
-    if (commonInterests.includes('Arijit Singh')) {
-      prompts.push("There's something so raw and honest about Arijit's voice that speaks directly to the heart. I'd love to know which of his songs has been your companion during both happy and difficult times? 🎤💕");
-    }
-    
-    // Food & Cultural Connection
-    if (commonInterests.includes('Biryani')) {
-      prompts.push("Food has this incredible way of bringing people together, doesn't it? Biryani always feels like a warm hug to me. What's your favorite memory associated with this dish? 🍛✨");
-    }
-    if (commonInterests.includes('Pizza')) {
-      prompts.push("I love how pizza can be both comfort food and an adventure! It's fascinating how everyone has their own perfect combination. What does your ideal pizza say about your personality? 🍕💭");
-    }
-    
-    // Creative & Artistic Expression
-    if (commonInterests.includes('Travel Photography')) {
-      prompts.push("Photography has this magical ability to freeze moments that touch our hearts. I'm curious - what's the story behind the most meaningful photo you've ever taken? 📸💫");
-    }
-    if (commonInterests.includes('Painting')) {
-      prompts.push("Art is such a beautiful way to express what words sometimes can't. I'd love to know what emotions or experiences inspire you to pick up a brush? 🎨💭");
-    }
-    
-    // Wellness & Personal Growth
-    if (commonInterests.includes('Yoga')) {
-      prompts.push("Yoga has taught me so much about finding peace within chaos. I'm curious - what's the biggest lesson you've learned about yourself through your practice? 🧘‍♀️💫");
-    }
-    
-    // Intellectual & Emotional Growth
-    if (commonInterests.includes('Reading Novels')) {
-      prompts.push("Books have this incredible power to change how we see the world and ourselves. What's a story that left you different after reading it? 📚💭");
-    }
-    if (commonInterests.includes('Harry Potter Books')) {
-      prompts.push("The magic of Harry Potter goes beyond just the story - it's about friendship, courage, and finding your place in the world. Which character's journey do you see yourself in? 🧙‍♂️💫");
-    }
-    
-    // Lifestyle & Daily Moments
-    if (commonInterests.includes('Coffee')) {
-      prompts.push("There's something so intimate about coffee rituals - they're these little moments of pause in our busy lives. What does your perfect coffee moment look like? ☕💭");
-    }
-    if (commonInterests.includes('Tea')) {
-      prompts.push("Tea has this gentle way of slowing down time, doesn't it? I'd love to know what your tea ritual says about how you take care of yourself? 🫖💫");
-    }
-    
-    // Entertainment & Shared Experiences
-    if (commonInterests.includes('Netflix')) {
-      prompts.push("Stories have this amazing way of making us feel less alone in our experiences. What's a show or movie that made you feel truly seen and understood? 📺💭");
-    }
-    
-    // Deep & Meaningful Connection Prompts
-    if (prompts.length < 3) {
-      prompts.push("I feel like there's something special about your energy that I'm drawn to. I'd love to understand what makes your heart smile and what challenges have shaped who you are today? 💫💭");
-      prompts.push("Your profile has this beautiful authenticity that's rare to find. I'm curious - what's something you're passionate about that you wish more people understood? ✨💕");
-      prompts.push("There's something about your story that feels important to hear. What's a moment in your life that changed everything for you? 💭💫");
-    }
-    
-    // Add emotional intelligence prompts
-    prompts.push("I believe everyone has a story worth telling. What's something you've experienced that you think has made you more compassionate or understanding? 💕💭");
-    prompts.push("Life has this way of teaching us lessons when we least expect it. What's something difficult you've gone through that actually made you stronger? 💪💫");
-    
-    return prompts.slice(0, 6); // Return max 6 prompts
-  };
-
-  // Function to handle opening AI prompts modal
-  const openAIPromptsModal = (_profile: any) => {
-    setSelectedProfileForChat(profile);
-    setAiPrompts(generateAIPrompts(_profile));
-    setShowAIPromptsModal(true);
-    navigate('/love-dashboard/ai-prompts-modal');
-  };
-
-  // Function to select an AI prompt and start chat
-  const selectAIPrompt = (prompt: string) => {
-    if (selectedProfileForChat) {
-      // Close both modals and open chat
-      setShowAIPromptsModal(false);
-      setShowProfileModal(false);
-      
-      // Open real messages experience
-      setActiveTab('messages');
-      navigate('/love-dashboard/love-messages');
-      
-    }
-  };
-
-  // Function to open a chat with a specific profile
-  const openChat = (_profile: any) => {
-    setActiveTab('messages');
-    navigate('/love-dashboard/love-messages');
-  };
-
-  // Local demo chat-interface removed; use ChatSystem (Supabase-backed)
+  // Local demo chat-interface removed; dyad mode is not chat (Option A)
 
   // Date Planning Functions
   function openDatePlanningModal(profile: any) {
@@ -1651,7 +1723,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           budget: datePlan.budget || null,
           description: datePlan.description || null,
           special_notes: datePlan.specialNotes || null,
-          status: 'sent',
+          status: 'pending',
         });
 
       if (planErr) throw planErr;
@@ -1806,6 +1878,10 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     setSpinResult(null);
   };
 
+  const handleTakeChallenge = useCallback(() => {
+    setShowChallengeModal(true);
+  }, []);
+
   const handleFindMoreDates = () => {
     closeSpinResultModal();
     setActiveTab('matches');
@@ -1815,27 +1891,60 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
     closeSpinResultModal();
   };
 
+  if (isNestedFullPageRoute || isNestedDyadRoute) {
+    return <Outlet />;
+  }
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-indigo-50 via-white to-pink-50">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50">
       <ProgressiveOnboardingOverlay userId={userId} />
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-pink-100 shadow-sm">
+      <header className="sticky top-0 z-40 bg-gradient-to-r from-pink-50/95 via-rose-50/95 to-purple-50/95 backdrop-blur-md border-b border-pink-200/70 shadow-sm">
         <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Left Section - Brand */}
-            <button
-              type="button"
-              onClick={() => navigate('/love-dashboard/love-overview')}
-              className="flex items-center space-x-2 sm:space-x-3"
-              title="Love Dashboard"
-            >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-nowrap min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate('/love-dashboard/love-overview')}
+                className="flex items-center space-x-2 sm:space-x-3 flex-nowrap min-w-0"
+                title="Love Dashboard"
+              >
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <div className="leading-tight min-w-0">
+                  <div className="text-sm sm:text-base font-bold text-gray-900 whitespace-nowrap">BrandBond</div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">Love Dashboard</div>
+                </div>
+              </button>
+
+              <div className="hidden sm:flex items-center bg-white/80 border border-pink-200 rounded-full p-0.5 shadow-sm flex-nowrap">
+                <button
+                  type="button"
+                  onClick={() => switchUniverse('love')}
+                  className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                    isLoveUniverse
+                      ? 'bg-gradient-to-r from-indigo-600 to-pink-600 text-white shadow'
+                      : 'text-gray-600 hover:text-indigo-700'
+                  }`}
+                  title="Go to Dates"
+                >
+                  Dates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchUniverse('friends')}
+                  className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                    !isLoveUniverse
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow'
+                      : 'text-gray-600 hover:text-blue-700'
+                  }`}
+                  title="Go to Friends"
+                >
+                  Friends
+                </button>
               </div>
-              <div className="leading-tight">
-                <div className="text-sm sm:text-base font-bold text-gray-900">BrandBond</div>
-                <div className="text-[10px] sm:text-xs text-gray-500">Love Dashboard</div>
-              </div>
-            </button>
+            </div>
 
             {/* Center Spacer */}
             <div className="flex-1"></div>
@@ -1848,7 +1957,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   setActiveTab('matches');
                   navigate('/love-dashboard/romantic-matches');
                 }}
-                className="p-2 text-indigo-600 hover:text-indigo-700 active:text-indigo-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Search"
               >
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1860,7 +1969,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   setActiveTab('liked');
                   navigate('/love-dashboard/liked-profiles');
                 }}
-                className="p-2 text-indigo-600 hover:text-indigo-700 active:text-indigo-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Liked"
               >
                 <ThumbsUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1884,7 +1993,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   setActiveTab('bookmarked');
                   navigate('/love-dashboard/bookmarked-profiles');
                 }}
-                className="p-2 text-indigo-600 hover:text-indigo-700 active:text-indigo-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Bookmarked"
               >
                 <Bookmark className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1896,12 +2005,12 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   setActiveTab('notifications');
                   navigate('/love-dashboard/notifications');
                 }}
-                className="p-2 text-indigo-600 hover:text-indigo-700 active:text-indigo-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation relative"
+                className="p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation relative"
                 title="Notifications"
               >
                 <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-bold">
+                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
                     {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
                   </span>
                 )}
@@ -1910,19 +2019,10 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
               <button
                 type="button"
                 onClick={refreshData}
-                className="p-2 text-indigo-600 hover:text-indigo-700 active:text-indigo-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+                className="p-2 text-pink-600 hover:text-pink-700 active:text-pink-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
                 title="Refresh Data"
               >
                 <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('friends-dashboard')}
-                className="p-2 text-cyan-600 hover:text-cyan-700 active:text-cyan-800 hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
-                title="Switch to Friends Dashboard"
-              >
-                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <UserProfileButton
@@ -1962,73 +2062,152 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                     window.location.href = '/';
                   })();
                 }}
-                theme="love"
               />
+
+              {/* Mobile toggle + overlay */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpenMobile(true)}
+                className="sm:hidden inline-flex items-center justify-center rounded-xl border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 backdrop-blur px-3 py-2 shadow relative z-50"
+                aria-label="Open menu"
+                title="Open menu"
+              >
+                <Menu className="w-5 h-5 text-pink-700" />
+              </button>
+
             </div>
           </div>
         </div>
       </header>
 
-      {/* Tab Navigation - Hidden on Mobile */}
-      <div className="hidden sm:block w-full px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4">
-        <div className="bg-white/60 backdrop-blur-sm rounded-full p-1 sm:p-1.5 md:p-2 shadow-lg border border-pink-200">
-          <div className="flex space-x-0.5">
-            {(
-              [
-                { id: 'overview', label: 'Love Overview', icon: Heart, route: '/love-dashboard/love-overview', badge: undefined },
-                { id: 'matches', label: 'Romantic Matches', icon: Star, route: '/love-dashboard/romantic-matches', badge: undefined },
-                { id: 'its-a-match', label: "It's a Match", icon: Sparkles, route: '/love-dashboard/its-a-match', badge: undefined },
-                { id: 'messages', label: 'Messages', icon: MessageCircle, route: '/love-dashboard/love-messages', badge: undefined },
-                { id: 'dates', label: 'Date Planning', icon: Calendar, route: '/love-dashboard/date-planning', badge: undefined },
-                { id: 'date-requests', label: 'Date Requests', icon: Compass, route: '/love-dashboard/date-requests', badge: undefined },
-              ] satisfies Array<{
-                id: string;
-                label: string;
-                icon: typeof Heart;
-                route: string;
-                badge?: number;
-              }>
-            ).map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    navigate(tab.route);
-                  }}
-                  className={`flex-1 flex items-center justify-center space-x-2 py-2 sm:py-2.5 md:py-3 px-2 sm:px-3 md:px-4 rounded-full font-medium transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-pink-600 hover:bg-white/80'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-xs sm:text-sm md:text-base whitespace-nowrap">{tab.label}</span>
-                  {typeof tab.badge === 'number' && tab.badge > 0 && (
-                    <span className="bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-1">
-                      {tab.badge > 9 ? '9+' : tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <div className="w-full flex-1 min-h-0">
+        <div className="flex h-full min-h-0">
+          {/* Desktop left sidebar */}
+          <div
+            className={`hidden sm:block sticky top-0 self-start h-full overflow-y-auto border-r border-pink-200/70 bg-gradient-to-b from-pink-50/80 via-white/70 to-purple-50/70 backdrop-blur-md transition-[width,background-color,border-color] duration-300 ease-out ${
+              sidebarCollapsed ? 'w-[72px]' : 'w-[260px]'
+            }`}
+          >
+            <div className="p-3">
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                className="w-full inline-flex items-center justify-center rounded-xl border border-pink-200 bg-white/80 hover:bg-pink-50 px-3 py-2 text-pink-700 transition-all duration-200 ease-out"
+                aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+              >
+                {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+              </button>
+            </div>
 
-        {/* Tab Content */}
-        <div className="w-full">
-          {activeTab === 'overview' && (
-            <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6 md:space-y-8">
-              {/* Welcome Section */}
-              <div className="text-center mb-6 sm:mb-8 md:mb-12">
-                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 sm:mb-3 md:mb-4">
-                  Welcome to Your Love Journey 💕
-                </h1>
-                <p className="text-gray-600 text-sm sm:text-base md:text-lg lg:text-xl">Discover romantic connections that make your heart skip a beat</p>
+            <nav className="px-3 pb-4 space-y-1">
+              {loveTabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => goToTab(tab)}
+                    className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-200 ease-out ${
+                      active
+                        ? 'bg-gradient-to-r from-pink-100 via-rose-100 to-purple-100 text-pink-800'
+                        : 'text-gray-700 hover:bg-pink-50/60'
+                    }`}
+                    title={tab.label}
+                  >
+                    <div className="relative">
+                      <Icon className={`w-5 h-5 ${active ? 'text-pink-700' : 'text-gray-600'}`} />
+                      {tab.badge && tab.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
+                          {tab.badge > 9 ? '9+' : tab.badge}
+                        </span>
+                      )}
+                    </div>
+                    {!sidebarCollapsed ? (
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">{tab.label}</div>
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Mobile toggle + overlay */}
+          <div className="sm:hidden fixed top-[72px] left-3 z-40">
+            <button
+              type="button"
+              onClick={() => setSidebarOpenMobile(true)}
+              className="inline-flex items-center justify-center rounded-xl border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 backdrop-blur px-3 py-2 shadow"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5 text-pink-700" />
+            </button>
+          </div>
+
+          {sidebarOpenMobile ? (
+            <div className="sm:hidden fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpenMobile(false)} />
+              <div className="absolute inset-y-0 left-0 w-[280px] bg-gradient-to-b from-pink-50 via-white to-purple-50 shadow-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-extrabold text-pink-900">Menu</div>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpenMobile(false)}
+                    className="rounded-xl border border-pink-200 bg-white/80 px-3 py-2 text-sm font-semibold text-pink-700"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="mt-4 space-y-1">
+                  {loveTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const active = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          goToTab(tab);
+                          setSidebarOpenMobile(false);
+                        }}
+                        className={`w-full flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+                          active
+                            ? 'bg-gradient-to-r from-pink-100 via-rose-100 to-purple-100 text-pink-800'
+                            : 'text-gray-700 hover:bg-pink-50/60'
+                        }`}
+                      >
+                        <div className="relative">
+                          <Icon className={`w-5 h-5 ${active ? 'text-pink-700' : 'text-gray-600'}`} />
+                          {tab.badge && tab.badge > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
+                              {tab.badge > 9 ? '9+' : tab.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold">{tab.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            </div>
+          ) : null}
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* Tab Content */}
+            <div className="w-full">
+              {activeTab === 'overview' && (
+                <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6 md:space-y-8">
+                  {/* Welcome Section */}
+                  <div className="text-center mb-6 sm:mb-8 md:mb-12">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 sm:mb-3 md:mb-4">
+                      Welcome to Your Love Journey 💕
+                    </h1>
+                    <p className="text-gray-600 text-sm sm:text-base md:text-lg lg:text-xl">Discover romantic connections that make your heart skip a beat</p>
+                  </div>
 
               {/* Love Stats Cards - FULL WIDTH GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8 md:mb-12">
@@ -2040,7 +2219,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                 ].map((stat) => (
                   <div
                     key={stat.label}
-                    className="bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all duration-200 border border-indigo-100 hover:border-indigo-200 group hover:scale-105"
+                    className="bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all duration-150 border border-indigo-100 hover:border-indigo-200 group hover:scale-105"
                   >
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-2 sm:mb-3 md:mb-4 group-hover:scale-110 transition-transform shadow-lg border-3 border-white`}>
                       <stat.icon className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
@@ -2060,7 +2239,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                     </div>
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-gray-800 mb-2">Today's Romantic Matches</h3>
-                      <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+                      <div className="inline-flex items-center space-x-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
                         <Star className="w-4 h-4 mr-1 text-yellow-500" />
                         95% Active
                       </div>
@@ -2081,196 +2260,31 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                 <div className="bg-white rounded-2xl p-4 sm:p-6 md:p-8 border border-gray-200 hover:shadow-xl transition-all duration-150 shadow-lg">
                   <div className="flex items-start space-x-4 mb-6">
                     <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                      <MessageCircle className="w-8 h-8 text-white" />
+                      <Activity className="w-8 h-8 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">Love Messages</h3>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Pulse</h3>
                       <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
                         <Star className="w-4 h-4 mr-1 text-yellow-500" />
-                        {unreadMessagesCount} New
+                        New Today
                       </div>
                     </div>
                   </div>
                   <p className="text-gray-700 text-sm leading-relaxed italic bg-gray-50 p-3 rounded-lg border border-gray-100 mb-6">
-                    "Connect with your matches through meaningful conversations"
+                    "Daily signals. Slow bonds. Explore the same people in new ways."
                   </p>
                   <button 
                     onClick={() => {
-                      setActiveTab('messages');
-                      navigate('/love-dashboard/love-messages');
+                      setActiveTab('pulse');
+                      navigate('/love-dashboard/pulse');
                     }}
                     className="flex-1 py-2.5 px-4 bg-purple-500 text-white rounded-full font-medium hover:bg-purple-600 transition-colors duration-75 text-sm"
                   >
-                    <MessageCircle className="w-4 h-4 inline mr-2" />
-                    View Messages
+                    <Activity className="w-4 h-4 inline mr-2" />
+                    Open Pulse
                   </button>
                 </div>
               </div>
-
-
-
-              {/* Hot Matches Preview - CENTERED WITH SPACING */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-3xl p-4 sm:p-6 md:p-8 border border-indigo-200 mb-6 sm:mb-8 md:mb-12">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 md:mb-6 text-center flex items-center justify-center space-x-1.5 sm:space-x-2 md:space-x-3">
-                  <Star className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-indigo-500" />
-                  <span><i className="fas fa-fire text-red-500 mr-2"></i>Your Hottest Matches This Week</span>
-                </h3>
-                <p className="text-center text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-                  These profiles match with your All Time Favorites! <i className="fas fa-star text-yellow-500"></i>
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
-                  {recommendedProfiles.slice(0, 4).map((profile) => {
-                    if (!profile) return null;
-                    return (
-                    <div key={profile.id} className="relative bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-150 cursor-pointer group hover:scale-105 h-64 sm:h-72 md:h-80 lg:h-96 border border-gray-200 shadow-lg max-w-sm lg:max-w-md xl:max-w-lg">
-                      {/* Background Profile Image - Blurred */}
-                      <div className="absolute inset-0 z-0">
-                        <img 
-                          src={getWorkingImageUrl(profile.photos?.[0], 0)} 
-                          alt={`${profile.name || 'Profile'}'s profile`}
-                          className="w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity duration-300"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
-                        {/* Fallback gradient background */}
-                        <div className="w-full h-full bg-gradient-to-br from-blue-200 via-cyan-200 to-blue-100 opacity-60"></div>
-                      </div>
-                      
-                      {/* Content Overlay */}
-                      <div className="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5 md:p-6">
-                        {/* Top Section - Profile Info */}
-                        <div className="text-center">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center text-blue-600 font-bold text-xl sm:text-2xl md:text-3xl mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform border-2 border-gray-200 shadow-lg">
-                        {(profile.name || 'U').charAt(0)}
-                      </div>
-                          <h4 className="font-bold text-gray-800 text-base sm:text-lg md:text-xl mb-1 sm:mb-2 drop-shadow-sm">
-                            {profile.name || 'Unknown'}
-                          </h4>
-                          <div className="inline-flex items-center space-x-1 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-300 mb-3 sm:mb-4 shadow-sm">
-                            <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-yellow-500" />
-                            <span className="font-semibold text-xs sm:text-sm">{profile.matchPercentage ?? 0}%</span>
-                          </div>
-                        </div>
-                        
-                        {/* Bottom Section - All Time Favorite */}
-                        <div className="text-center">
-                          <div className="text-xs sm:text-sm text-blue-700 font-medium mb-2 opacity-90">
-                            <i className="fas fa-sparkles text-blue-500 mr-2"></i>Matches your All Time Favorites:
-                          </div>
-                          <span className="inline-block bg-blue-500 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm shadow-lg border border-white/20">
-                          {profile.commonInterests?.[0] || ''}
-                        </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                  })}
-                </div>
-                <div className="text-center">
-                  <button 
-                    onClick={() => setActiveTab('matches')}
-                    className="w-full sm:w-auto px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 bg-blue-500 text-white rounded-full hover:shadow-lg transition-all duration-200 text-sm sm:text-base md:text-lg font-medium hover:bg-blue-600"
-                  >
-                    <i className="fas fa-rocket text-blue-500 mr-2"></i>Explore All Matches
-                  </button>
-                </div>
-              </div>
-
-              {/* It's a Match Section - Mutual Connections */}
-              {mutualMatches.length > 0 && (
-                <div className="bg-gradient-to-r from-pink-50 to-red-50 rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 lg:p-8 border border-pink-200 mb-4 sm:mb-6 md:mb-8 lg:mb-12">
-                  <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800 mb-2 sm:mb-3 md:mb-4 lg:mb-6 flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-1.5 md:space-x-2 lg:space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-pink-400 to-red-400 rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm sm:text-base font-bold">💕</span>
-                      </div>
-                      <span>It's a Match!</span>
-                    </div>
-                    <span className="px-2 py-1 bg-gradient-to-r from-pink-400 to-red-400 text-white text-xs rounded-full font-medium">
-                      {mutualMatches.length} Mutual Connection{mutualMatches.length > 1 ? 's' : ''}
-                    </span>
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                    {mutualMatches.slice(0, 8).map((match) => (
-                      <div key={match.id} className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-gray-200 hover:shadow-lg transition-all duration-200 hover:scale-105 shadow-lg max-w-sm lg:max-w-md xl:max-w-lg">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <img
-                            src={getWorkingImageUrl(match.profile.photos[0], 0)}
-                            alt={match.profile.name}
-                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-gray-200"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = fallbackImages[0];
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-800 text-sm sm:text-base truncate">
-                              {match.profile.name}
-                            </h4>
-                            <div className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-300">
-                              <Star className="w-3 h-3 mr-1 text-yellow-500" />
-                              {match.profile.matchPercentage}%
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 mb-3">
-                          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
-                            <span>💬</span>
-                            <span>Both messaged each other</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
-                            <span>💕</span>
-                            <span>Mutual interest confirmed</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setSelectedProfile(match.profile);
-                              setShowProfileModal(true);
-                            }}
-                            className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-pink-500 text-white text-xs sm:text-sm rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:bg-pink-600"
-                          >
-                            View Profile
-                          </button>
-                          <button
-                            onClick={() => {
-                              const otherUserId = String(match.profile?.id || '');
-                              if (!otherUserId) return;
-                              handleStartNewChat(otherUserId)
-                                .then(() => {
-                                  setActiveTab('messages');
-                                  navigate('/love-dashboard/love-messages');
-                                })
-                                .catch((e) => {
-                                  console.error('Failed to start chat with match:', e);
-                                  setActiveTab('messages');
-                                  navigate('/love-dashboard/love-messages');
-                                });
-                            }}
-                            className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-500 text-white text-xs sm:text-sm rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:bg-blue-600"
-                          >
-                            Chat
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {mutualMatches.length > 8 && (
-                    <div className="text-center mt-4">
-                      <button className="px-4 sm:px-6 py-2 sm:py-2.5 bg-pink-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base hover:bg-pink-600">
-                        View All {mutualMatches.length} Matches
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Daily Love Challenge and It's a Match - 50-50 HORIZONTAL SPLIT ON DESKTOP, STACKED ON MOBILE */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-4 sm:mb-6 md:mb-8 lg:mb-12">
@@ -2382,525 +2396,204 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
 
                     {/* Recent Matches Display */}
                     {mutualMatches.length > 0 && (
-                    <div className="bg-pink-50 p-3 rounded-lg border border-pink-200 mb-4">
-                      <p className="text-sm text-pink-700 font-medium mb-2">Recent Matches:</p>
-                      <div className="space-y-1">
+                      <div className="bg-pink-50 p-3 rounded-lg border border-pink-200 mb-4">
+                        <p className="text-sm text-pink-700 font-medium mb-2">Recent Matches:</p>
+                        <div className="space-y-1">
                           {mutualMatches.slice(-2).map((match, index) => (
-                          <div key={index} className="flex items-center space-x-2 text-sm text-pink-600">
+                            <div key={index} className="flex items-center space-x-2 text-sm text-pink-600">
                               <span>💖</span>
-                            <span>Matched with <strong>{match.profile.name}</strong></span>
+                              <span>Matched with <strong>{match.profile.name}</strong></span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                  
-                  <div className="flex space-x-3">
-                    <button 
-                      onClick={() => setActiveTab('its-a-match')}
-                      className="flex-1 py-2.5 px-4 bg-pink-500 text-white rounded-lg font-medium hover:bg-pink-600 transition-colors duration-75 text-sm"
-                    >
-                      <Sparkles className="w-4 h-4 inline mr-2" />
-                      {mutualMatches.length > 0 ? 'View All Matches' : 'Discover Matches'}
-                    </button>
                   </div>
-                </div>
+              </div>
             </div>
+          )}
 
+          {activeTab === 'pulse' && (
+            <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+              <LovePulsePage />
+            </div>
+          )}
+
+          {activeTab === 'matches' && (
+            <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                  Romantic Matches ⭐
+                </h1>
+                <p className="text-gray-600 text-sm sm:text-base md:text-lg">Explore profiles recommended for you</p>
+              </div>
+
+              {recommendedProfiles.length === 0 ? (
+                <div className="rounded-3xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-6 text-center">
+                  <div className="text-sm text-gray-700">No recommendations yet.</div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                  {recommendedProfiles.map((profile) => {
+                    if (!profile) return null;
+                    return (
+                      <ProfileSuggestionCard
+                        key={profile.id}
+                        profile={profile as LoveProfileCardModel}
+                        onOpen={(p) => openProfileModal(p)}
+                        onAction={(action, p) => handleProfileAction(action, p)}
+                        hasAction={(profileId, actionType) => hasProfileAction(Number(profileId), actionType)}
+                        onReveal={(profileId) => profileReveals.reveal(profileId)}
+                        onPlanDate={(p) => openDatePlanningModal(p)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'its-a-match' && (
-            <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6 md:space-y-8">
-              {/* Current Mutual Matches */}
-              {mutualMatches.length > 0 ? (
-                <div className="space-y-4 sm:space-y-6 md:space-y-8">
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 text-center mb-4 sm:mb-6">
-                    <i className="fas fa-party-horn text-yellow-500 mr-2"></i>Your Current Matches
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
-                    {mutualMatches.map((match) => (
-                      <div 
+            <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+              <div className="text-center mb-6 sm:mb-8 md:mb-12">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent mb-2">
+                  It's a Match! 💕
+                </h1>
+                <p className="text-gray-600 text-sm sm:text-base md:text-lg">Mutual connections and next steps</p>
+              </div>
+
+              {mutualMatches.length === 0 ? (
+                <div className="bg-gradient-to-r from-pink-50 to-red-50 rounded-3xl p-4 sm:p-6 md:p-8 border border-pink-200 text-center">
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-r from-pink-100 to-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <Sparkles className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 text-pink-400" />
+                  </div>
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-2 leading-tight">No mutual matches yet</h3>
+                  <p className="text-gray-600 mb-3 sm:mb-4 text-xs sm:text-sm md:text-base">When mutual connections happen, they’ll appear here.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('matches');
+                      navigate('/love-dashboard/romantic-matches');
+                    }}
+                    className="w-full sm:w-auto px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 bg-pink-500 text-white rounded-full hover:shadow-lg transition-all duration-200 text-sm sm:text-base md:text-lg font-medium hover:bg-pink-600"
+                  >
+                    Explore Matches
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-pink-50 to-red-50 rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 lg:p-8 border border-pink-200 mb-4 sm:mb-6 md:mb-8 lg:mb-12">
+                  <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800 mb-2 sm:mb-3 md:mb-4 lg:mb-6 flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-1.5 md:space-x-2 lg:space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-pink-400 to-red-400 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm sm:text-base font-bold">💕</span>
+                      </div>
+                      <span>It's a Match!</span>
+                    </div>
+                    <span className="px-2 py-1 bg-gradient-to-r from-pink-400 to-red-400 text-white text-xs rounded-full font-medium">
+                      {mutualMatches.length} Mutual Connection{mutualMatches.length > 1 ? 's' : ''}
+                    </span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    {mutualMatches.slice(0, 12).map((match) => (
+                      <div
                         key={match.id}
-                        className="bg-white rounded-2xl p-4 sm:p-6 md:p-8 border border-gray-200 hover:shadow-xl transition-all duration-150 cursor-pointer group shadow-lg max-w-sm lg:max-w-md xl:max-w-lg"
-                        onClick={() => {
-                          setCurrentMatch(match);
-                          setShowMatchPopup(true);
-                        }}
+                        className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-gray-200 hover:shadow-lg transition-all duration-200 hover:scale-105 shadow-lg max-w-sm lg:max-w-md xl:max-w-lg"
                       >
-                        <div className="text-center">
-                          <div className="w-20 h-20 bg-gradient-to-r from-pink-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-lg">
-                            <img
-                              src={getWorkingImageUrl(match.profile.photos[0], 0)}
-                              alt={match.profile.name}
-                              className="w-full h-full rounded-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = fallbackImages[0];
-                              }}
-                            />
+                        <div className="flex items-center space-x-3 mb-3">
+                          <img
+                            src={getWorkingImageUrl(match.profile.photos[0], 0)}
+                            alt={match.profile.name}
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-gray-200"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = fallbackImages[0];
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-800 text-sm sm:text-base truncate">{match.profile.name}</h4>
+                            <div className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-300">
+                              <Star className="w-3 h-3 mr-1 text-yellow-500" />
+                              {match.profile.matchPercentage}%
+                            </div>
                           </div>
-                          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 mb-2">
-                            {match.profile.name}
-                          </h3>
-                          <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold mb-3 border border-green-300">
-                            <Star className="w-4 h-4 mr-1 text-yellow-500" />
-                            {match.profile.matchPercentage}%
+                        </div>
+
+                        <div className="space-y-2 mb-3">
+                          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                            <span>💬</span>
+                            <span>Both messaged each other</span>
                           </div>
-                          <div className="flex space-x-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                viewMatchProfile();
-                              }}
-                              className="flex-1 py-2.5 px-4 bg-pink-500 text-white rounded-full font-medium hover:bg-pink-600 transition-colors duration-75 text-sm"
-                            >
-                              View Profile
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startChatWithMatch();
-                              }}
-                              className="flex-1 py-2.5 px-4 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors duration-75 text-sm"
-                            >
-                              Chat
-                            </button>
+                          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                            <span>💕</span>
+                            <span>Mutual interest confirmed</span>
                           </div>
+                        </div>
+
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedProfile(match.profile);
+                              setShowProfileModal(true);
+                            }}
+                            className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-pink-500 text-white text-xs sm:text-sm rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:bg-pink-600"
+                          >
+                            View Profile
+                          </button>
+                          <button
+                            onClick={() => {
+                              const otherUserId = String(match.profile?.id || '');
+                              if (!otherUserId) return;
+                              handleStartNewChat(otherUserId)
+                                .then(() => {
+                                  setActiveTab('overview');
+                                  navigate('/love-dashboard/love-overview');
+                                })
+                                .catch((e) => {
+                                  console.error('Failed to start chat with match:', e);
+                                  setActiveTab('overview');
+                                  navigate('/love-dashboard/love-overview');
+                                });
+                            }}
+                            className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-500 text-white text-xs sm:text-sm rounded-full font-medium hover:shadow-lg transition-all duration-200 hover:bg-blue-600"
+                          >
+                            Chat
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              ) : (
-                /* Beautiful Empty State - Always Visible */
-                <div className="text-center py-8 sm:py-12 md:py-16">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gradient-to-r from-pink-100 via-red-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-lg">
-                    <div className="relative">
-                      <Sparkles className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-pink-400" />
-                      <div className="absolute -top-2 -right-2 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-pink-400 to-red-400 rounded-full flex items-center justify-center animate-pulse">
-                        <span className="text-white text-xs sm:text-sm md:text-base">💕</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Encouragement Section */}
-                  <div className="bg-white rounded-2xl p-4 sm:p-6 md:p-8 border border-gray-200 max-w-3xl mx-auto shadow-lg">
-                    <h4 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4 text-center">
-                      💝 Ready to Find Your Match?
-                    </h4>
-                    <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6 text-center">
-                      Start by exploring romantic matches and sending messages to people who catch your heart
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-                      <button 
-                        onClick={() => setActiveTab('matches')}
-                        className="px-6 sm:px-8 py-3 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors duration-75"
-                      >
-                        Browse Matches
-                      </button>
-                      <button 
-                        onClick={() => setActiveTab('messages')}
-                        className="px-6 sm:px-8 py-3 bg-purple-500 text-white rounded-full font-medium hover:bg-purple-600 transition-colors duration-75"
-                      >
-                        View Messages
-                      </button>
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
           )}
-
-          {activeTab === 'matches' && (
-            <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-              <div className="text-center mb-4 sm:mb-6 md:mb-8">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  Your Romantic Matches 💕
-                </h1>
-                <p className="text-gray-600 text-sm sm:text-base md:text-lg">People who could be your perfect romantic partner</p>
-                
-
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Top Picks (70%+)</h2>
-                  <p className="text-sm text-gray-600 mb-4">High overlap in your favorites and interests</p>
-
-                  {topPickProfiles.length ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                      {topPickProfiles.map((profile: any) => {
-                        if (!profile) return null;
-                        return (
-                        <div 
-                          key={profile.id} 
-                          className="bg-white rounded-2xl border border-gray-200 hover:shadow-xl transition-all duration-150 cursor-pointer relative overflow-hidden h-[500px] shadow-lg max-w-sm lg:max-w-md xl:max-w-lg"
-                          onClick={() => openProfileModal(profile)}
-                        >
-                           <div className="absolute inset-0 z-0">
-                             <div className={`w-full h-full transition-all duration-500 ${
-                               profile.isRevealed 
-                                 ? 'blur-none' 
-                                 : 'blur-sm opacity-60'
-                             }`}>
-                               <img 
-                                 src={profile.photos?.[0] || ''} 
-                                 alt={`${profile.name || 'Profile'}'s profile photo`}
-                                 className="w-full h-full object-cover rounded-2xl"
-                                 onError={(e) => {
-                                   const target = e.currentTarget as HTMLImageElement;
-                                   target.style.display = 'none';
-                                   const fallback = target.nextElementSibling as HTMLElement;
-                                   if (fallback) fallback.style.display = 'flex';
-                                 }}
-                               />
-                               <div className="w-full h-full bg-gradient-to-br from-blue-200 via-cyan-200 to-blue-100 flex items-center justify-center text-white font-bold text-6xl sm:text-8xl rounded-2xl hidden">
-                                 👤
-                               </div>
-                             </div>
-                           </div>
-                           <div className="absolute inset-0 sm:hidden bg-gradient-to-b from-transparent via-black/5 to-black/20 z-[5] pointer-events-none"></div>
-                          
-                          <div className="relative z-10 h-full flex flex-col p-2.5 sm:p-4">
-                            <div className="text-center mb-3 sm:mb-6 mt-4 sm:mt-8">
-                              <h3 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 drop-shadow-lg">
-                                {profile.name || 'Unknown'}
-                              </h3>
-                              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 drop-shadow-lg font-medium">
-                                {profile.age ?? ''} • {profile.location ?? ''}
-                              </p>
-                              <div className="inline-flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-300 mb-3 sm:mb-4 shadow-lg">
-                                <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-yellow-500" />
-                                <span className="font-bold text-xs sm:text-sm">{profile.matchPercentage ?? 0}%</span>
-                              </div>
-                            </div>
-
-                            <div className="flex-1 flex flex-col justify-center mb-3 sm:mb-6">
-                              <div className="text-center">
-                                <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4 drop-shadow-lg font-semibold">Common Interests</p>
-                                <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
-                                  {(profile.commonInterests ?? []).map((interest: string, index: number) => (
-                                    <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
-                                      {interest}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-auto space-y-3 sm:space-y-4">
-                              <div className="flex justify-center flex-wrap gap-x-2.5 sm:gap-x-3 md:gap-x-4 gap-y-1.5 sm:gap-y-2">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleProfileAction('like', profile);
-                                  }}
-                                  className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                    hasProfileAction(profile.id, 'like')
-                                      ? 'border-blue-600 bg-blue-50'
-                                      : 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
-                                  }`}
-                                >
-                                  <ThumbsUp className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'like') ? 'text-blue-700' : 'text-blue-600'}`} />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    (async () => {
-                                      try {
-                                        await handleProfileAction('love', profile);
-                                        await profileReveals.reveal(String(profile.id));
-                                        openProfileModal({ ...profile, isRevealed: true });
-                                      } catch (err) {
-                                        console.error('Failed to love+reveal profile:', err);
-                                      }
-                                    })();
-                                  }}
-                                  className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                    hasProfileAction(profile.id, 'love')
-                                      ? 'border-red-600 bg-red-50'
-                                      : 'border-red-300 hover:border-red-500 hover:bg-red-50'
-                                  }`}
-                                >
-                                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'love') ? 'text-red-700' : 'text-red-600'}`} />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleProfileAction('bookmark', profile);
-                                  }}
-                                  className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                    hasProfileAction(profile.id, 'bookmark')
-                                      ? 'border-purple-600 bg-purple-50'
-                                      : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
-                                  }`}
-                                >
-                                  <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'bookmark') ? 'text-purple-700' : 'text-purple-600'}`} />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openDatePlanningModal(profile);
-                                  }}
-                                  className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 border-green-300 hover:border-green-500 hover:bg-green-50 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
-                                >
-                                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
-                                </button>
-                              </div>
-                              {!profile.isRevealed && (
-                                <div className="text-center">
-                                  <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">
-                                    * Click Heart to reveal full profile
-                                  </p>
-                                </div>
-                              )}
-                              <div className="text-center mt-2">
-                                <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">
-                                  * Click Calendar to plan a date
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center text-gray-600">
-                      No 70%+ matches yet. Add more favorites and interests to improve your top picks.
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Explore (Below 70%)</h2>
-                  <p className="text-sm text-gray-600 mb-4">Good potential matches with less overlap</p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                    {exploreProfiles.map((profile: any) => {
-                      if (!profile) return null;
-                      return (
-                      <div 
-                        key={profile.id} 
-                        className="bg-white rounded-2xl border border-gray-200 hover:shadow-xl transition-all duration-150 cursor-pointer relative overflow-hidden h-[500px] shadow-lg max-w-sm lg:max-w-md xl:max-w-lg"
-                        onClick={() => openProfileModal(profile)}
-                      >
-                         <div className="absolute inset-0 z-0">
-                           <div className={`w-full h-full transition-all duration-500 ${
-                             profile.isRevealed 
-                               ? 'blur-none' 
-                               : 'blur-sm opacity-60'
-                           }`}>
-                             <img 
-                               src={profile.photos?.[0] || ''} 
-                               alt={`${profile.name || 'Profile'}'s profile photo`}
-                               className="w-full h-full object-cover rounded-2xl"
-                               onError={(e) => {
-                                 const target = e.currentTarget as HTMLImageElement;
-                                 target.style.display = 'none';
-                                 const fallback = target.nextElementSibling as HTMLElement;
-                                 if (fallback) fallback.style.display = 'flex';
-                               }}
-                             />
-                             <div className="w-full h-full bg-gradient-to-br from-blue-200 via-cyan-200 to-blue-100 flex items-center justify-center text-white font-bold text-6xl sm:text-8xl rounded-2xl hidden">
-                               👤
-                             </div>
-                           </div>
-                         </div>
-                         <div className="absolute inset-0 sm:hidden bg-gradient-to-b from-transparent via-black/5 to-black/20 z-[5] pointer-events-none"></div>
-                        
-                        <div className="relative z-10 h-full flex flex-col p-2.5 sm:p-4">
-                          <div className="text-center mb-3 sm:mb-6 mt-4 sm:mt-8">
-                            <h3 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 drop-shadow-lg">
-                              {profile.name || 'Unknown'}
-                            </h3>
-                            <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 drop-shadow-lg font-medium">
-                              {profile.age ?? ''} • {profile.location ?? ''}
-                            </p>
-                            <div className="inline-flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-300 mb-3 sm:mb-4 shadow-lg">
-                              <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-yellow-500" />
-                              <span className="font-bold text-xs sm:text-sm">{profile.matchPercentage ?? 0}%</span>
-                            </div>
-                          </div>
-
-                          <div className="flex-1 flex flex-col justify-center mb-3 sm:mb-6">
-                            <div className="text-center">
-                              <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4 drop-shadow-lg font-semibold">Common Interests</p>
-                              <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
-                                {(profile.commonInterests ?? []).map((interest: string, index: number) => (
-                                  <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
-                                    {interest}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-auto space-y-3 sm:space-y-4">
-                            <div className="flex justify-center flex-wrap gap-x-2.5 sm:gap-x-3 md:gap-x-4 gap-y-1.5 sm:gap-y-2">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleProfileAction('like', profile);
-                                }}
-                                className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                  hasProfileAction(profile.id, 'like')
-                                    ? 'border-blue-600 bg-blue-50'
-                                    : 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
-                                }`}
-                              >
-                                <ThumbsUp className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'like') ? 'text-blue-700' : 'text-blue-600'}`} />
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  (async () => {
-                                    try {
-                                      await handleProfileAction('love', profile);
-                                      await profileReveals.reveal(String(profile.id));
-                                      openProfileModal({ ...profile, isRevealed: true });
-                                    } catch (err) {
-                                      console.error('Failed to love+reveal profile:', err);
-                                    }
-                                  })();
-                                }}
-                                className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                  hasProfileAction(profile.id, 'love')
-                                    ? 'border-red-600 bg-red-50'
-                                    : 'border-red-300 hover:border-red-500 hover:bg-red-50'
-                                }`}
-                              >
-                                <Heart className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'love') ? 'text-red-700' : 'text-red-600'}`} />
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleProfileAction('bookmark', profile);
-                                }}
-                                className={`w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl ${
-                                  hasProfileAction(profile.id, 'bookmark')
-                                    ? 'border-purple-600 bg-purple-50'
-                                    : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
-                                }`}
-                              >
-                                <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 ${hasProfileAction(profile.id, 'bookmark') ? 'text-purple-700' : 'text-purple-600'}`} />
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openDatePlanningModal(profile);
-                                }}
-                                className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 border-green-300 hover:border-green-500 hover:bg-green-50 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
-                              >
-                                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
-                              </button>
-                            </div>
-                            {!profile.isRevealed && (
-                              <div className="text-center">
-                                <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">
-                                  * Click Heart to reveal full profile
-                                </p>
-                              </div>
-                            )}
-                            <div className="text-center mt-2">
-                              <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium">
-                                * Click Calendar to plan a date
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'messages' && (
-            <div className="h-[calc(100vh-200px)] sm:h-[calc(100vh-250px)] overflow-hidden">
-              {isMessagingInitialized ? (
-                <ChatSystem
-                  userId={userId}
-                  conversations={conversations}
-                  startChatCandidates={startChatCandidates}
-                  onStartNewChat={handleStartNewChat}
-                  theme="love"
-                  currentUserProfile={(() => {
-                    const userProfile = {
-                      id: userId,
-                      name: myProfileRealtime.profile?.full_name || 'User',
-                      age: Number((myProfileRealtime.profile as any)?.age || 0),
-                      location: (myProfileRealtime.profile as any)?.location || '',
-                      bio: (myProfileRealtime.profile as any)?.bio || '',
-                      commonInterests: Array.isArray(myInterestsRow?.common_interests)
-                        ? myInterestsRow.common_interests
-                        : [],
-                      allTimeFavorites:
-                        typeof myInterestsRow?.all_time_favorites === 'object' && myInterestsRow?.all_time_favorites
-                          ? myInterestsRow.all_time_favorites
-                          : {},
-                    };
-                    return userProfile as import('../services/aiPromptService').UserProfile;
-                  })()}
-                  onSendMessage={handleSendMessage}
-                  onMarkAsRead={handleMarkAsRead}
-                  onDeleteConversation={handleDeleteConversation}
-                  onBlockUser={handleBlockUser}
-                  onReportUser={handleReportUser}
-                  onStartVideoCall={handleStartVideoCall}
-                  onStartVoiceCall={handleStartVoiceCall}
-                  onShareLocation={handleShareLocation}
-                  onSendDateInvite={handleSendDateInvite}
-                  onSendAIEnhancedMessage={handleSendAIEnhancedMessage}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1.5 sm:mb-2">Loading Messages</h3>
-                    <p className="text-gray-600 text-xs sm:text-sm">Initializing your advanced messaging system...</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-
 
           {activeTab === 'dates' && (
-            <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-              <div className="text-center mb-4 sm:mb-6 md:mb-8">
+            <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+              <div className="text-center mb-6 sm:mb-8 md:mb-12">
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  Date Planning 💑
+                  Date Planning 💕
                 </h1>
-                <p className="text-gray-600 text-sm sm:text-base md:text-lg">Plan romantic dates and activities with your matches</p>
-                
-
+                <p className="text-gray-600 text-sm sm:text-base md:text-lg">Plan romantic dates with your matches</p>
               </div>
-              
-              {/* Always Visible Action Buttons - Love Universe Style - Mobile Responsive */}
+
               <div className="text-center mb-4 sm:mb-6 md:mb-8 px-2 sm:px-0">
                 <div className="flex flex-col space-y-2 sm:space-y-3 md:space-y-0 sm:flex-row sm:justify-center sm:items-center sm:space-x-2 md:space-x-4">
-                  <button 
+                  <button
                     onClick={() => setActiveTab('loved')}
                     className="w-full sm:w-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-2 md:py-2.5 lg:py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center space-x-1.5 sm:space-x-2 hover:scale-105 shadow-md"
                   >
                     <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="whitespace-nowrap">Plan Date with Loved</span>
                   </button>
-                  <button 
-                    onClick={() => setActiveTab('messages')}
+                  <button
+                    onClick={() => setActiveTab('overview')}
                     className="w-full sm:w-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-2 md:py-2.5 lg:py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center space-x-1.5 sm:space-x-2 hover:scale-105 shadow-md"
                   >
                     <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span className="whitespace-nowrap">Plan Date with Chat</span>
+                    <span className="whitespace-nowrap">Open Dyad Space</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('bookmarked')}
                     className="w-full sm:w-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-2 md:py-2.5 lg:py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-xs sm:text-sm md:text-base flex items-center justify-center space-x-1.5 sm:space-x-2 hover:scale-105 shadow-md"
                   >
@@ -2909,91 +2602,69 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   </button>
                 </div>
               </div>
-              
+
               {plannedDates.length === 0 ? (
                 <div className="text-center py-4 sm:py-8 md:py-12">
-                  <div className="w-14 h-14 sm:w-20 sm:w-20 md:w-24 md:h-24 bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                    <Calendar className="w-7 h-7 sm:w-10 sm:w-10 md:w-12 md:h-12 text-indigo-400" />
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <Calendar className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 text-indigo-400" />
                   </div>
                   <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-2 leading-tight">No dates planned yet</h3>
                   <p className="text-gray-600 mb-3 sm:mb-4 text-xs sm:text-sm md:text-base">Use the buttons above to start planning romantic dates with your matches!</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Planned Dates List - Enhanced with All Fields */}
                   <div className="grid gap-3 sm:gap-4">
                     {plannedDates.map((date) => (
                       <div key={date.id} className="bg-white/80 backdrop-blur-sm rounded-xl p-2.5 sm:p-3 md:p-4 border border-indigo-200 hover:border-indigo-300 transition-all duration-200 hover:shadow-lg">
                         <div className="flex items-start space-x-2 sm:space-x-3">
                           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-indigo-200 flex-shrink-0">
-                            <img 
-                              src={date.fromProfile.photos[0]} 
-                              alt={date.fromProfile.name}
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous"
-                            />
+                            <img src={date.fromProfile.photos[0]} alt={date.fromProfile.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 space-y-1 sm:space-y-0">
                               <h4 className="font-semibold text-gray-800 text-sm sm:text-base break-words">{date.fromProfile.name}</h4>
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium w-fit ${
-                                date.status === 'planned' ? 'bg-indigo-100 text-indigo-800' : 
-                                date.status === 'accepted' ? 'bg-green-100 text-green-800' : 
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {date.status === 'planned' ? 'Planned' : 
-                                 date.status === 'accepted' ? 'Accepted' : 
-                                 'Pending'}
-                              </span>
+                              {(() => {
+                                const st = mapDatePlanStatusToLabel(date.status);
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium w-fit ${st.pillClass}`}>
+                                    {st.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
-                            
-                            {/* Enhanced Date Details - All Fields Displayed - Mobile Responsive */}
                             <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-3">
-                              {/* Date Type */}
                               {date.type && (
                                 <div className="flex items-center space-x-1.5 sm:space-x-2">
                                   <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 flex-shrink-0" />
                                   <span className="text-xs sm:text-sm text-gray-700 font-medium break-words">{date.type}</span>
-                              </div>
+                                </div>
                               )}
-                              
-                              {/* Date & Time */}
                               <div className="flex items-center space-x-1.5 sm:space-x-2">
                                 <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 flex-shrink-0" />
                                 <span className="text-xs sm:text-sm text-gray-700 break-words">
                                   {date.proposedDate} at {date.proposedTime}
                                 </span>
                               </div>
-                              
-                              {/* Location */}
                               <div className="flex items-center space-x-1.5 sm:space-x-2">
                                 <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 flex-shrink-0" />
                                 <span className="text-xs sm:text-sm text-gray-700 break-words">{date.proposedLocation}</span>
                               </div>
-                              
-                              {/* Activity */}
                               <div className="flex items-center space-x-1.5 sm:space-x-2">
                                 <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 flex-shrink-0" />
                                 <span className="text-xs sm:text-sm text-gray-700 break-words">{date.proposedActivity}</span>
                               </div>
-                              
-                              {/* Budget */}
                               {date.budget && (
                                 <div className="flex items-center space-x-1.5 sm:space-x-2">
                                   <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 flex-shrink-0" />
                                   <span className="text-xs sm:text-sm text-gray-700 break-words">Budget: {date.budget}</span>
                                 </div>
                               )}
-                              
-                              {/* Description */}
-                            {date.description && (
+                              {date.description && (
                                 <div className="flex items-start space-x-1.5 sm:space-x-2">
                                   <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
-                                  <span className="text-xs sm:text-sm text-gray-600 italic break-words">"{date.description}"</span>
+                                  <span className="text-xs sm:text-sm text-gray-600 italic break-words">&quot;{date.description}&quot;</span>
                                 </div>
                               )}
-                              
-                              {/* Special Notes */}
                               {date.specialNotes && (
                                 <div className="flex items-start space-x-1.5 sm:space-x-2">
                                   <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
@@ -3001,31 +2672,17 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                                 </div>
                               )}
                             </div>
-                            
-                            {/* Profile Info & Match Details - Mobile Responsive */}
-                            <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 pt-2 border-t border-indigo-100">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 w-fit">
-                                {date.fromProfile.matchPercentage}%
-                              </span>
-                              <div className="flex flex-col sm:flex-row sm:items-center space-y-0.5 sm:space-y-0 sm:space-x-2">
-                                <span className="text-xs text-gray-500 break-words">
-                                {date.fromProfile.location}
-                              </span>
-                                <span className="text-xs text-gray-400">
-                                  • {date.fromProfile.age} years old
-                              </span>
-                              </div>
-                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  
-                  {/* Additional Action Button */}
                   <div className="text-center pt-4">
-                    <button 
-                      onClick={() => setActiveTab('date-requests')}
+                    <button
+                      onClick={() => {
+                        setActiveTab('date-requests');
+                        navigate('/love-dashboard/date-requests');
+                      }}
                       className="px-6 py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-full font-medium hover:shadow-lg transition-all duration-200 text-sm sm:text-base hover:scale-105"
                     >
                       View Date Requests
@@ -3062,7 +2719,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                     See Your Matches
                   </button>
                 </div>
-        </div>
+              </div>
               
               <div className="text-center py-4 sm:py-8 md:py-12">
                 <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
@@ -3251,7 +2908,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openChat(profile);
+                                openDyadForMatchId(String(profile.id)).catch(() => undefined);
                               }}
                               className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
                               title="Chat"
@@ -3293,7 +2950,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                           {/* Hint Text - Love Universe Style - Mobile Responsive */}
                           <div className="text-center">
                             <p className="text-xs text-gray-500 italic drop-shadow-lg font-medium leading-tight">
-                              * Click Calendar to plan a date • Click Message to chat
+                              * Click Calendar to plan a date • Click Message to open dyad
                             </p>
                           </div>
                         </div>
@@ -3398,10 +3055,10 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openChat(profile);
+                                openDyadForMatchId(String(profile.id)).catch(() => undefined);
                               }}
                               className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-white rounded-full border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
-                              title="Chat"
+                              title="Open Dyad"
                             >
                               <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                             </button>
@@ -3696,9 +3353,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
             </div>
           )}
 
-
-      </div>
-
+      
       {/* Detailed Profile Modal */}
       {showProfileModal && selectedProfile && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-1 sm:p-2 md:p-3 lg:p-4 xl:p-6">
@@ -4525,18 +4180,26 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                   <div className="p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6">
                     <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-2 md:space-y-3 sm:space-y-0 sm:space-x-1 md:space-x-2 lg:space-x-3 xl:space-x-4">
                       <button 
-                        onClick={() => console.log('Send date request clicked')}
+                        onClick={() => {
+                          const p = selectedProfile;
+                          if (!p) return;
+                          openDatePlanningModal(p);
+                        }}
                         className="flex-1 py-1 sm:py-2 md:py-2.5 lg:py-3 xl:py-4 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-lg sm:rounded-xl md:rounded-2xl font-semibold hover:shadow-lg transition-all duration-200 text-xs sm:text-sm md:text-base lg:text-lg flex items-center justify-center space-x-1 sm:space-x-2"
                       >
                         <Calendar className="w-2 h-2 sm:w-3 sm:h-3 md:w-4 md:h-4 lg:w-5 lg:h-5" />
                         <span>Send Date Request</span>
                       </button>
                       <button 
-                        onClick={() => openAIPromptsModal(selectedProfile)}
+                        onClick={() => {
+                          const matchId = String((selectedProfile as any)?.match_id || '');
+                          if (!matchId) return;
+                          openDyadForMatchId(matchId).catch(() => undefined);
+                        }}
                         className="flex-1 py-1 sm:py-2 md:py-2.5 lg:py-3 xl:py-4 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg sm:rounded-xl md:rounded-2xl font-semibold hover:shadow-lg transition-all duration-200 text-xs sm:text-sm md:text-base lg:text-lg flex items-center justify-center space-x-1 sm:space-x-2"
                       >
                         <MessageCircle className="w-2 h-2 sm:w-3 sm:h-3 md:w-4 md:h-4 lg:w-5 lg:h-5" />
-                        <span>Message Them</span>
+                        <span>Open Dyad</span>
                       </button>
                     </div>
                   </div>
@@ -4550,7 +4213,7 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                         <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-pink-500" />
                       </div>
                       <p className="text-pink-600 text-xs sm:text-sm mb-3">
-                        When both of you show mutual interest, magic happens! 💕
+                        When both of you show mutual interest, magic happens! 
                       </p>
                       <button 
                         onClick={() => setActiveTab('its-a-match')}
@@ -4560,26 +4223,38 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
                       </button>
                     </div>
                   </div>
-          </div>
-        </div>
-      )}
-
+                </div>
+                </div>
+                )}
+                </div>
+                </div>
       {/* Mobile Bottom Navigation Bar - Only Visible on Mobile */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-pink-200 shadow-lg">
         <div className="flex items-center justify-between px-2 py-2.5">
-          {[
-            { id: 'overview', label: 'Overview', icon: Heart },
-            { id: 'matches', label: 'Matches', icon: Star },
-            { id: 'its-a-match', label: 'Match!', icon: Sparkles },
-            { id: 'messages', label: 'Messages', icon: MessageCircle },
-            { id: 'dates', label: 'Dates', icon: Calendar },
-            { id: 'date-requests', label: 'Requests', icon: Calendar }
-          ].map((tab) => {
+          {(
+            [
+              { id: 'overview', label: 'Overview', icon: Heart },
+              { id: 'pulse', label: 'Pulse', icon: Activity },
+              { id: 'matches', label: 'Matches', icon: Star },
+              { id: 'its-a-match', label: 'Match!', icon: Sparkles },
+              { id: 'dates', label: 'Dates', icon: Calendar },
+              { id: 'date-requests', label: 'Requests', icon: Calendar }
+            ] as Array<{ id: LoveDashboardTabId; label: string; icon: any }>
+          )
+          .map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === 'overview') navigate('/love-dashboard/love-overview');
+                  if (tab.id === 'pulse') navigate('/love-dashboard/pulse');
+                  if (tab.id === 'matches') navigate('/love-dashboard/romantic-matches');
+                  if (tab.id === 'its-a-match') navigate('/love-dashboard/its-a-match');
+                  if (tab.id === 'dates') navigate('/love-dashboard/date-planning');
+                  if (tab.id === 'date-requests') navigate('/love-dashboard/date-requests');
+                }}
                 className={`flex flex-col items-center justify-center space-y-1 py-1 px-1 rounded-lg transition-all duration-200 flex-1 min-w-0 ${
                   activeTab === tab.id
                     ? 'text-pink-600 bg-pink-50'
@@ -4601,65 +4276,6 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
           })}
         </div>
       </div>
-
-      {/* AI Chat Prompts Modal */}
-      {showAIPromptsModal && selectedProfileForChat && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-2xl border border-indigo-200 max-w-md w-full max-h-[80vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-4 sm:p-5 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-white/80 shadow-lg">
-                    <img 
-                      src={selectedProfileForChat.photos[0]} 
-                      alt={selectedProfileForChat.name}
-                      className="w-full h-full object-cover"
-                      crossOrigin="anonymous"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base sm:text-lg bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent">
-                      Message {selectedProfileForChat.name}
-                    </h3>
-                    <p className="text-indigo-100 text-xs sm:text-sm font-medium">
-                      Choose a conversation starter <i className="fas fa-sparkles text-blue-500 ml-2"></i>
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowAIPromptsModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-full transition-all duration-200 hover:scale-110"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Prompts */}
-            <div className="p-4 sm:p-5 space-y-3 max-h-96 overflow-y-auto">
-              {aiPrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => selectAIPrompt(prompt)}
-                  className="w-full text-left p-3 sm:p-4 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 rounded-xl sm:rounded-2xl hover:border-indigo-300 hover:bg-gradient-to-r hover:from-indigo-100 hover:via-purple-100 hover:to-pink-100 transition-all duration-200 group shadow-sm hover:shadow-md"
-                >
-                  <p className="text-gray-800 text-sm sm:text-base leading-relaxed font-medium">{prompt}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-indigo-600 font-semibold bg-white/60 px-2 py-1 rounded-full">
-                      Click to send
-                    </span>
-                    <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                      <MessageCircle className="w-4 h-4 text-white" />
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Date Planning Modal */}
       {showDatePlanningModal && selectedProfileForDate && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -5294,150 +4910,26 @@ const LoveDashboard: React.FC<LoveDashboardProps> = ({ userId, onNavigate }) => 
         </div>
       )}
 
+      </div>
+      </div>
+
       {/* Notifications Modal */}
-      {showNotificationsModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-[95vw] sm:max-w-md w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-bold">Notifications</h3>
-                    <p className="text-indigo-100 text-sm">{unreadNotificationsCount} unread</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowNotificationsModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-full transition-colors duration-75"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex space-x-2 mt-4">
-                <button
-                  onClick={markAllNotificationsAsRead}
-                  className="flex-1 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors duration-75"
-                >
-                  Mark All Read
-                </button>
-                <button
-                  onClick={() => setShowNotificationsModal(false)}
-                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors duration-75"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            {/* Notifications List */}
-            <div className="overflow-y-auto max-h-[60vh]">
-              {notifications.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Bell className="w-8 h-8 text-indigo-400" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-gray-800 mb-2">No notifications</h4>
-                  <p className="text-gray-600 text-sm">You're all caught up! <i className="fas fa-party-horn text-yellow-500 ml-2"></i></p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors duration-75 cursor-pointer ${
-                        !notification.isRead ? 'bg-indigo-50/50' : ''
-                      }`}
-                      onClick={() => handleNotificationAction(notification)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        {/* Notification Icon */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          notification.type === 'new_match' ? 'bg-green-100' :
-                          notification.type === 'date_request' ? 'bg-pink-100' :
-                          notification.type === 'message' ? 'bg-blue-100' :
-                          notification.type === 'date_accepted' ? 'bg-purple-100' :
-                          'bg-gray-100'
-                        }`}>
-                          {notification.type === 'new_match' ? <Heart className="w-4 h-4 text-green-600" /> :
-                           notification.type === 'date_request' ? <Calendar className="w-4 h-4 text-pink-600" /> :
-                           notification.type === 'message' ? <MessageCircle className="w-4 h-4 text-blue-600" /> :
-                           notification.type === 'date_accepted' ? <Star className="w-4 h-4 text-purple-600" /> :
-                           <User className="w-4 h-4 text-gray-600" />}
-                        </div>
-
-                        {/* Notification Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h5 className={`font-semibold text-sm ${
-                                !notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                              }`}>
-                                {notification.title}
-                              </h5>
-                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                {notification.message}
-                              </p>
-                              
-                              {/* Profile Info if available */}
-                              {notification.profile && (
-                                <div className="flex items-center space-x-2 mt-2">
-                                  {(() => {
-                                    const profile = notification.profile as any;
-                                    return (
-                                      <>
-                                  <img
-                                    src={getWorkingImageUrl(profile?.photos?.[0], 0)}
-                                    alt={profile?.name}
-                                    className="w-6 h-6 rounded-full border border-gray-200"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.src = fallbackImages[0];
-                                    }}
-                                  />
-                                  <span className="text-xs text-gray-500">
-                                    {profile?.name} • {profile?.matchPercentage}%
-                                  </span>
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Timestamp and Actions */}
-                            <div className="flex flex-col items-end space-y-2 ml-2">
-                              <span className="text-xs text-gray-400">
-                                {formatTimestamp(notification.timestamp)}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteNotification(notification.id);
-                                }}
-                                className="p-1 hover:bg-red-100 rounded-full transition-colors duration-75"
-                                title="Delete notification"
-                              >
-                                <X className="w-3 h-3 text-red-500" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+      <NotificationsPanel
+        isOpen={showNotificationsModal}
+        onClose={() => {
+          setShowNotificationsModal(false);
+          if (location.pathname.includes('/notifications-modal')) {
+            navigate('/love-dashboard/love-overview');
+          }
+        }}
+        notifications={notifications}
+        unreadCount={unreadNotificationsCount}
+        onMarkAsRead={markNotificationAsRead}
+        onMarkAllAsRead={markAllNotificationsAsRead}
+        onDeleteNotification={deleteNotification}
+        onNotificationAction={handleNotificationAction}
+        formatTimestamp={formatTimestamp}
+      />
     </div>
   );
 };

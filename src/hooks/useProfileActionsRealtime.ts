@@ -144,13 +144,17 @@ export function useProfileActionsRealtime(userId: string, limit: number = 500): 
 
         if (delRes.error) throw delRes.error;
       } else {
-        const insRes = await supabase.from('profile_actions').insert({
-          user_id: userId,
-          target_user_id: targetUserId,
-          action,
-        });
+        const insRes = await supabase
+          .from('profile_actions')
+          .upsert({ user_id: userId, target_user_id: targetUserId, action }, { onConflict: 'user_id,target_user_id,action' });
 
-        if (insRes.error) throw insRes.error;
+        if (insRes.error) {
+          const msg = String(insRes.error.message || 'Failed to save action');
+          if (action === 'love' && msg.includes('romantic_exclusivity_violation')) {
+            throw new Error('You can only have one active love match at a time. End the current one before starting a new one.');
+          }
+          throw insRes.error;
+        }
       }
     },
     [actions, userId]

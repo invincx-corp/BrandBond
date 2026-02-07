@@ -46,6 +46,72 @@ export function useMatchRecommendationsRealtime(userId: string, limit: number = 
       return;
     }
 
+    // Fast path: single round-trip request using nested selects.
+    // This relies on PostgREST relationship inference. If it fails, we fall back to
+    // the multi-query enrichment below.
+    const joinedRes = await supabase
+      .from('match_recommendations')
+      .select(
+        `
+        id,
+        user_id,
+        recommended_user_id,
+        score,
+        reasons,
+        status,
+        created_at,
+        updated_at,
+        expires_at,
+        recommended_profile:profiles!inner(
+          id,
+          full_name,
+          age,
+          location,
+          photo_url
+        )
+      `
+      )
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('score', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (!joinedRes.error && Array.isArray(joinedRes.data)) {
+      const enriched: RecommendationItem[] = (joinedRes.data as any[]).map((r: any) => {
+        const p = r.recommended_profile || null;
+
+        return {
+          id: r.id,
+          user_id: r.user_id,
+          recommended_user_id: r.recommended_user_id,
+          score: r.score,
+          reasons: r.reasons,
+          status: r.status,
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+          expires_at: r.expires_at,
+          recommended_profile: p
+            ? {
+                id: p.id,
+                full_name: p.full_name ?? null,
+                age: typeof p.age === 'number' ? p.age : null,
+                location: p.location ?? null,
+                photo_url: p.photo_url ?? null,
+              }
+            : null,
+        } as RecommendationItem;
+      });
+
+      setRecommendations(enriched);
+      return;
+    }
+
+    // Fallback path: keep previous behavior (3 queries), but photos remain optional.
+    if (joinedRes.error) {
+      console.warn('Recommendations joined query failed; falling back to multi-query enrichment:', joinedRes.error);
+    }
+
     const recRes = await supabase
       .from('match_recommendations')
       .select('*')
@@ -76,11 +142,15 @@ export function useMatchRecommendationsRealtime(userId: string, limit: number = 
     ]);
 
     if (profilesRes.error) throw profilesRes.error;
-    if (photosRes.error) throw photosRes.error;
+    // Photos are optional for rendering recommendations. If user_photos query times out
+    // (or any other error occurs), keep rendering profile cards without photos.
+    if (photosRes.error) {
+      console.warn('Failed to load recommendation photos (continuing without photos):', photosRes.error);
+    }
 
     const profileById = new Map<string, any>((profilesRes.data || []).map((p: any) => [p.id, p]));
     const photosByUser = new Map<string, any[]>();
-    (photosRes.data || []).forEach((row: any) => {
+    ((photosRes.data || []) as any[]).forEach((row: any) => {
       const list = photosByUser.get(row.user_id) || [];
       list.push(row);
       photosByUser.set(row.user_id, list);

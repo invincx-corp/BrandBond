@@ -1,5 +1,4 @@
-import React from 'react';
-import { X, Calendar, MapPin, Clock, DollarSign, Heart, Coffee, Utensils, Film, Music, Gamepad2, Plane, Camera, Book, ShoppingBag, Car, Dumbbell, Palette, Code, Briefcase, GraduationCap, Baby, PawPrint, Leaf, Zap, Globe, Smartphone, Watch, Shirt, Gift, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { X, Clock, DollarSign, Coffee, Utensils, Film, Gamepad2, Book, Leaf } from 'lucide-react';
 
 interface DatePlanningModalProps {
   isOpen: boolean;

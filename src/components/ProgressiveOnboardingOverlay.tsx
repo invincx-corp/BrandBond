@@ -17,6 +17,7 @@ type PromptDefinition = {
 
 type PhotoValue = {
   dataUrl: string;
+  file?: File;
 };
 
 type Props = {
@@ -179,7 +180,7 @@ const PromptCard = ({
     reader.onload = () => {
       const dataUrl = String(reader.result || '');
       if (!dataUrl) return;
-      setPhoto({ dataUrl });
+      setPhoto({ dataUrl, file });
     };
     reader.readAsDataURL(file);
   }, []);
@@ -343,18 +344,13 @@ const ProgressiveOnboardingOverlay: React.FC<Props> = ({ userId }) => {
     if (!userId) return false;
 
     try {
-      const [profileRes, interestsRes, prefsRes] = await Promise.all([
-        supabase.from('profiles').select('id, onboarding_skipped').eq('id', userId).maybeSingle(),
+      const [interestsRes, prefsRes] = await Promise.all([
         supabase.from('user_interests').select('user_id').eq('user_id', userId).maybeSingle(),
         supabase.from('user_preferences').select('user_id').eq('user_id', userId).maybeSingle(),
       ]);
 
-      if (profileRes.error) throw profileRes.error;
-
-      const skipped = Boolean((profileRes.data as any)?.onboarding_skipped);
       const complete = Boolean(interestsRes.data) && Boolean(prefsRes.data);
-
-      return skipped || !complete;
+      return !complete;
     } catch {
       // If we can't read, be conservative and do not show prompts.
       return false;
@@ -402,9 +398,9 @@ const ProgressiveOnboardingOverlay: React.FC<Props> = ({ userId }) => {
         return isMissingValue(v);
       });
 
-      return missing.length ? missing : promptPool;
+      return missing;
     } catch {
-      return promptPool;
+      return [] as PromptDefinition[];
     }
   }, [promptPool, userId]);
 
@@ -420,6 +416,8 @@ const ProgressiveOnboardingOverlay: React.FC<Props> = ({ userId }) => {
 
     const missingPool = await computeMissingKeys();
     if (!mountedRef.current) return;
+
+    if (!missingPool.length) return;
 
     const picked = pickRandom(missingPool);
     if (!picked) return;
@@ -453,6 +451,42 @@ const ProgressiveOnboardingOverlay: React.FC<Props> = ({ userId }) => {
           const v = value as PhotoValue;
           if (!v?.dataUrl) throw new Error('Missing photo');
 
+          const uploadFile = async () => {
+            // Prefer the original File (no base64). Fallback to parsing dataUrl.
+            let blob: Blob;
+            let contentType = 'image/jpeg';
+
+            if (v.file instanceof File) {
+              blob = v.file;
+              contentType = v.file.type || contentType;
+            } else {
+              const match = v.dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+              if (!match) throw new Error('Invalid photo data');
+              contentType = match[1] || contentType;
+              const base64 = match[2];
+              const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+              blob = new Blob([bytes], { type: contentType });
+            }
+
+            const ext = (() => {
+              const fromMime = (contentType || '').split('/')[1] || 'jpg';
+              return fromMime.replace(/[^a-z0-9]+/gi, '').slice(0, 8) || 'jpg';
+            })();
+
+            const filePath = `${userId}/${Date.now()}_onboarding.${ext}`;
+            const { error: uploadError } = await supabase.storage
+              .from('profile-photos')
+              .upload(filePath, blob, { contentType, upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const publicUrl = supabase.storage.from('profile-photos').getPublicUrl(filePath).data.publicUrl;
+            if (!publicUrl) throw new Error('Failed to get public URL');
+            return publicUrl;
+          };
+
+          const photoUrl = await uploadFile();
+
           // Append photo with next order. Keep an existing main photo if present.
           const { data: existing } = await supabase
             .from('user_photos')
@@ -472,7 +506,7 @@ const ProgressiveOnboardingOverlay: React.FC<Props> = ({ userId }) => {
           const { error } = await supabase.from('user_photos').insert([
             {
               user_id: userId,
-              photo_url: v.dataUrl,
+              photo_url: photoUrl,
               photo_order: nextOrder,
               is_main_photo: isMain,
             },

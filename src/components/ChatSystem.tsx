@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   MessageCircle, 
   Send, 
@@ -52,6 +53,7 @@ import LiveLocationMap from './chat/LiveLocationMap';
 import IntelligentAIPrompts from './IntelligentAIPrompts';
 import EmojiPicker from 'emoji-picker-react';
 import { UserProfile } from '../services/aiPromptService';
+import { supabase } from '../lib/supabase';
 
 interface Message {
   id: string;
@@ -61,7 +63,7 @@ interface Message {
   text: string;
   timestamp: Date;
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  type: 'text' | 'image' | 'voice' | 'location' | 'date-invite' | 'ai-enhanced' | 'story-reply' | 'gif' | 'file' | 'poll' | 'voice-note';
+  type: 'text' | 'image' | 'voice' | 'location' | 'date-invite' | 'ai-enhanced' | 'story-reply' | 'gif' | 'file' | 'poll' | 'voice-note' | 'location-share';
   metadata?: any;
 }
 
@@ -133,6 +135,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
   onSendDateInvite,
   onSendAIEnhancedMessage
 }) => {
+  const location = useLocation();
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'online' | 'recent'>('all');
@@ -365,6 +368,35 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeConversation?.messages]);
+
+  // Deep-link support: allow parent screens to open a specific conversation.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const conversationId = params.get('conversationId');
+    const toUserId = params.get('to');
+
+    const target = (() => {
+      if (conversationId) {
+        return conversations.find((c) => String(c.conversation.id) === String(conversationId)) || null;
+      }
+      if (toUserId) {
+        return conversations.find((c) => String(c.otherProfile.id) === String(toUserId)) || null;
+      }
+      return null;
+    })();
+
+    if (!target) return;
+    if (activeConversation?.conversation?.id === target.conversation.id) return;
+    setActiveConversation(target);
+  }, [activeConversation?.conversation?.id, conversations, location.search]);
+
+  // Keep local activeConversation in sync with incoming prop updates (new messages, unread count, etc.).
+  useEffect(() => {
+    if (!activeConversation?.conversation?.id) return;
+    const updated = conversations.find((c) => String(c.conversation.id) === String(activeConversation.conversation.id)) || null;
+    if (!updated) return;
+    setActiveConversation(updated);
+  }, [activeConversation?.conversation?.id, conversations]);
 
   // Live location: subscribe to user_locations updates for a given shareId
   useEffect(() => {
@@ -920,13 +952,23 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
               
               return filtered;
             })().map(conversation => (
-              <button
-                type="button"
+              <div
                 key={conversation.conversation.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   setActiveConversation(conversation);
                   if (conversation.conversation.unreadCount > 0) {
                     onMarkAsRead(conversation.conversation.id);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveConversation(conversation);
+                    if (conversation.conversation.unreadCount > 0) {
+                      onMarkAsRead(conversation.conversation.id);
+                    }
                   }
                 }}
                 className={`group w-full text-left p-1 sm:p-1.5 border-b border-gray-100 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
@@ -1163,7 +1205,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
                     </span>
                   </div>
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>
@@ -1312,7 +1354,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({
 
 
           {/* Messages Area - Proper height without unnecessary scrolling */}
-          <div className="flex-1 overflow-y-auto px-1.5 sm:px-2 md:px-4 lg:px-6 xl:px-8 py-1.5 sm:py-2 md:py-3 lg:py-4 xl:py-6 space-y-1.5 sm:space-y-2 md:space-y-3 lg:space-y-4 xl:space-y-5 chat-messages-container relative">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-1.5 sm:px-2 md:px-4 lg:px-6 xl:px-8 py-1.5 sm:py-2 md:py-3 lg:py-4 xl:py-6 space-y-1.5 sm:space-y-2 md:space-y-3 lg:space-y-4 xl:space-y-5 chat-messages-container relative">
             {activeConversation.messages.map((message) => (
                               <div
                   key={message.id}

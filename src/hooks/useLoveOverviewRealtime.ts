@@ -312,17 +312,28 @@ export function useLoveOverviewRealtime(userId: string): LoveOverviewRealtimeSta
   }, [userId]);
 
   const respondToDateRequest = useCallback(async (id: string, status: 'accepted' | 'declined' | 'cancelled') => {
+    const normalizedStatus = status === 'declined' ? 'rejected' : status;
+
     const { error: updErr } = await supabase
       .from('date_requests')
-      .update({ status })
+      .update({ status: normalizedStatus, responded_at: new Date().toISOString() })
       .eq('id', id)
       .eq('to_user_id', userId);
 
     if (updErr) throw updErr;
+
+    // Keep date_plans in sync since Date Planning UI is driven by date_plans.
+    const { error: planErr } = await supabase
+      .from('date_plans')
+      .update({ status: normalizedStatus })
+      .eq('date_request_id', id);
+
+    if (planErr) throw planErr;
   }, [userId]);
 
   useEffect(() => {
     let isMounted = true;
+    let pollTimer: any = null;
 
     const init = async () => {
       if (!userId) {
@@ -345,36 +356,64 @@ export function useLoveOverviewRealtime(userId: string): LoveOverviewRealtimeSta
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-            () => {
+            (payload: any) => {
+              console.debug('[love_overview] notifications realtime payload', payload);
               // reload snapshot for correctness (keeps UI consistent)
               loadSnapshot().catch(() => undefined);
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.debug('[love_overview] notifications channel subscribe status', status, { userId });
+          });
 
         const dateRequestsCh = supabase
           .channel(`love_overview_date_requests_${userId}`)
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'date_requests', filter: `to_user_id=eq.${userId}` },
-            () => {
+            (payload: any) => {
+              console.debug('[love_overview] incoming date_requests realtime payload', payload);
               loadSnapshot().catch(() => undefined);
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.debug('[love_overview] incoming date_requests channel subscribe status', status, { userId });
+          });
+
+        const outgoingDateRequestsCh = supabase
+          .channel(`love_overview_outgoing_date_requests_${userId}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'date_requests', filter: `from_user_id=eq.${userId}` },
+            (payload: any) => {
+              console.debug('[love_overview] outgoing date_requests realtime payload', payload);
+              loadSnapshot().catch(() => undefined);
+            }
+          )
+          .subscribe((status) => {
+            console.debug('[love_overview] outgoing date_requests channel subscribe status', status, { userId });
+          });
 
         const statsCh = supabase
           .channel(`love_overview_stats_${userId}`)
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'user_love_stats', filter: `user_id=eq.${userId}` },
-            () => {
+            (payload: any) => {
+              console.debug('[love_overview] stats realtime payload', payload);
               loadSnapshot().catch(() => undefined);
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.debug('[love_overview] stats channel subscribe status', status, { userId });
+          });
 
-        channelsRef.current = [notificationsCh, dateRequestsCh, statsCh];
+        channelsRef.current = [notificationsCh, dateRequestsCh, outgoingDateRequestsCh, statsCh];
+
+        // Polling fallback: keeps UI fresh even if Realtime is not enabled for tables.
+        pollTimer = setInterval(() => {
+          loadSnapshot().catch(() => undefined);
+        }, 5000);
       } catch (e: any) {
         if (!isMounted) return;
         setError(e?.message || 'Failed to load love overview');
@@ -388,6 +427,7 @@ export function useLoveOverviewRealtime(userId: string): LoveOverviewRealtimeSta
 
     return () => {
       isMounted = false;
+      if (pollTimer) clearInterval(pollTimer);
       channelsRef.current.forEach((ch) => supabase.removeChannel(ch));
       channelsRef.current = [];
     };

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { RegistrationData } from '../types/registration';
 
 // Language interface
 export interface Language {
@@ -79,6 +80,7 @@ export interface RegistrationData {
 }
 
 export class RegistrationService {
+  private static readonly PROFILE_PHOTOS_BUCKET = 'profile-photos';
   static async createAuthUser(
     email: string,
     password: string
@@ -313,9 +315,41 @@ export class RegistrationService {
       if (!photo || typeof photo !== 'string') continue;
       
       try {
-        // For now, just store the base64 data directly
-        // This avoids storage permission issues during registration
-        photoUrls.push(photo);
+        // Expect a data URL (from FileReader.readAsDataURL). Convert to bytes and upload to Supabase Storage.
+        // Store only the resulting URL in the DB (never store base64 in DB).
+        const match = photo.match(/^data:([^;]+);base64,(.*)$/);
+        if (!match) {
+          // Not a data URL -> skip
+          continue;
+        }
+
+        const contentType = match[1];
+        const base64 = match[2];
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: contentType });
+
+        const ext = (() => {
+          const fromMime = (contentType || '').split('/')[1] || 'jpg';
+          // keep file extension short/safe
+          return fromMime.replace(/[^a-z0-9]+/gi, '').slice(0, 8) || 'jpg';
+        })();
+
+        const filePath = `${userId}/${Date.now()}_${i}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from(RegistrationService.PROFILE_PHOTOS_BUCKET)
+          .upload(filePath, blob, { contentType, upsert: true });
+
+        if (uploadError) {
+          console.error(`Failed to upload photo ${i + 1}:`, uploadError);
+          continue;
+        }
+
+        const publicUrl = supabase.storage
+          .from(RegistrationService.PROFILE_PHOTOS_BUCKET)
+          .getPublicUrl(filePath).data.publicUrl;
+
+        if (!publicUrl) continue;
+        photoUrls.push(publicUrl);
       } catch (error) {
         console.error(`Failed to process photo ${i + 1}:`, error);
         continue;
